@@ -1,0 +1,20 @@
+# Virtual environments
+.venv/
+*/.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Data
+*.csv
+*.jpg
+*.png
+*.jpeg
+*.h5
+*.pth
+*.onnx
+
+# OS files
+.DS_Store
+Thumbs.db
