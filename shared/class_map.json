@@ -1,0 +1,18 @@
+{
+  "index_to_name": {
+    "0": "glass",
+    "1": "paper",
+    "2": "cardboard",
+    "3": "plastic",
+    "4": "metal",
+    "5": "trash"
+  },
+  "name_to_index": {
+    "glass": 0,
+    "paper": 1,
+    "cardboard": 2,
+    "plastic": 3,
+    "metal": 4,
+    "trash": 5
+  }
+}
