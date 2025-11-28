@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
 
 interface AuthContextType {
@@ -29,13 +29,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         // Fetch the user's role from Firestore
         const userDocRef = doc(db, "users", authenticatedUser.uid);
-        const userDoc = await getDoc(userDocRef);
+        try {
+          const userDoc = await getDoc(userDocRef);
 
-        if (userDoc.exists()) {
-          setUserRole(userDoc.data().role);
-        } else {
-          // Fallback if doc is missing (rare, but good for safety)
-          setUserRole("user");
+          if (userDoc.exists()) {
+            setUserRole(userDoc.data().role);
+          } else {
+            // Option B: User is new (Registration Race Condition Fix)
+            // The doc is missing, so we create it HERE.
+            console.log("Creating missing user profile in Firestore...");
+
+            await setDoc(userDocRef, {
+              email: authenticatedUser.email,
+              role: "user", // Default role
+              createdAt: new Date().toISOString(),
+            });
+            setUserRole("user");
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+          setUserRole("user"); // Fallback role
         }
       } else {
         setUser(null);
