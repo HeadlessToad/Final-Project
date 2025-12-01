@@ -1,94 +1,104 @@
-# Final-Project
-♻️ Waste Sorter App - Developer Setup Guide
-This project consists of two parts:
+# Smart Waste Sorter
 
-Backend: A Python Flask server that handles the ML model and Firebase database.
+A full-stack mobile application that uses Machine Learning to classify waste items (Plastic, Paper, Glass, etc.) and helps users sort them correctly. The app features secure user authentication, real-time image analysis, and a personal scan history.
 
-Frontend: A React Native (Expo) app that runs on your phone.
+## Features
 
-Follow these steps to run the project locally.
+* **AI-Powered Classification**: Identifies waste type from photos using a custom ML model.
+* **User Authentication**: Secure Login & Registration using Firebase Auth.
+* **Scan History**: Automatically saves classification results to a cloud database (Firestore).
+* **Cross-Platform**: Runs on iOS and Android via Expo (React Native).
+* **Scalable Backend**: Python Flask API designed for Cloud Run deployment.
 
-🔧 Prerequisites
-Python 3.8+ installed.
+## Tech Stack
 
-Node.js & npm installed.
+* **Frontend**: React Native, Expo, TypeScript
+* **Backend**: Python, Flask, Google Cloud Run
+* **Machine Learning**: TensorFlow/Keras (Python)
+* **Database & Auth**: Google Firebase (Firestore & Authentication)
 
-Expo Go app installed on your physical phone (iOS or Android).
+## Project Structure
 
-🚀 Step 1: Start the Backend (The Kitchen)
+final-project/
+├── backend/             # Flask Server & API Logic
+│   ├── main.py          # Entry point for the server
+│   ├── requirements.txt # Backend dependencies
+│   └── serviceAccountKey.json # (Ignored by Git) Firebase Credentials
+├── frontend/            # React Native Mobile App
+│   ├── src/             # Source code (Screens, Navigation, Context)
+│   ├── App.tsx          # Main App entry
+│   └── package.json     # Frontend dependencies
+├── ml/                  # Machine Learning Logic
+│   ├── dummy_model.py   # Model inference logic
+│   └── data/            # Dataset & training scripts
+└── shared/              # Shared configurations (Class mappings, API spec)
+
+## Local Setup Guide
+
+Follow these steps to run the project on your machine.
+
+### 1. Prerequisites
+* Node.js & npm (for Frontend)
+* Python 3.8+ (for Backend)
+* Expo Go app installed on your physical phone.
+
+### 2. Backend Setup (The Kitchen)
 The backend must be running first to process images.
 
-Navigate to the backend folder:
+1. Navigate to the backend folder:
+   cd backend
 
-Bash
+2. Create and activate a virtual environment:
+   python -m venv .venv
+   .venv\Scripts\activate
 
-cd backend
-Set up the Virtual Environment (Optional but recommended):
+   (For Mac/Linux use: source .venv/bin/activate)
 
-Bash
+3. Install dependencies:
+   pip install -r requirements.txt
 
-# Windows
-python -m venv .venv
-.venv\Scripts\activate
+4. Add your Firebase Key:
+   Download your Service Account Key from the Firebase Console.
+   Rename it to serviceAccountKey.json.
+   Place it inside the backend/ folder.
 
-# Mac/Linux
-python3 -m venv .venv
-source .venv/bin/activate
-Install Dependencies:
+5. Run the server:
+   python main.py
 
-Bash
+   (You should see: Running on http://0.0.0.0:8000)
 
-pip install -r requirements.txt
-Add Firebase Credentials:
+### 3. Frontend Setup (The Dining Room)
 
-You need a Service Account Key from the Firebase Console.
+1. Open a new terminal and navigate to the frontend:
+   cd frontend
 
-Download the JSON file, rename it to serviceAccountKey.json, and place it inside the backend/ folder.
+2. Install dependencies:
+   npm install
 
-Run the Server:
+3. Critical Configuration: Connect App to Backend.
+   Find your computer's local IP address (ipconfig on Windows or ifconfig on Mac).
+   Open src/screens/WasteClassifier.tsx.
+   Update the apiUrl variable:
+   
+   const apiUrl = "http://YOUR_IP_ADDRESS:8000/api/classify";
 
-Bash
+4. Start the app:
+   npx expo start
 
-python main.py
-Success: You should see Running on all addresses (0.0.0.0) and Running on http://10.x.x.x:8000.
+5. Scan the QR code with your phone using Expo Go.
 
-📱 Step 2: Configure the Frontend (The Dining Room)
-The phone needs to know exactly where your computer is located on the network.
+## Troubleshooting
 
-Find your Computer's Local IP:
+"Network Error" or App freezes on "Classifying..."
+This usually means the phone cannot reach the computer.
+1. Ensure both devices are on the same Wi-Fi.
+2. If using Public/School Wi-Fi, "Client Isolation" might be blocking connections.
+   Fix: Disconnect computer from Wi-Fi -> Turn on Phone Hotspot -> Connect Computer to Hotspot -> Update IP in code.
+3. Check if your computer's firewall is blocking Python.
 
-Open a terminal and run ipconfig (Windows) or ifconfig (Mac/Linux).
+## API Reference
 
-Look for the IPv4 Address of your Wi-Fi adapter (e.g., 10.0.0.19 or 192.168.1.5).
+The backend exposes the following endpoints:
 
-Update the Code:
-
-Open frontend/src/screens/WasteClassifier.tsx.
-
-Find the apiUrl variable and update it with your IP:
-
-TypeScript
-
-// Replace with YOUR computer's actual IP
-const apiUrl = "http://10.0.0.19:8000/api/classify";
-Install & Run:
-
-Bash
-
-cd frontend
-npm install
-npx expo start
-Connect your Phone:
-
-Scan the QR code displayed in the terminal using the Expo Go app.
-
-⚠️ Troubleshooting Connection Issues
-If the app says "Network Error" or gets stuck on "Classifying...":
-
-Check Wi-Fi: Ensure your phone and computer are connected to the exact same Wi-Fi network.
-
-Public/School Wi-Fi: If you are at a university or office, the router might block device-to-device communication ("Client Isolation").
-
-Fix: Disconnect your computer from Wi-Fi, turn on your Phone's Hotspot, and connect your computer to that Hotspot. Update the apiUrl with the new IP address.
-
-Firewall: Ensure your computer's firewall allows Python to accept incoming connections.
+* GET /health: Checks if server is running.
+* POST /api/classify: Accepts an image file and user ID, returns prediction.
