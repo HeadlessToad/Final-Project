@@ -42,7 +42,7 @@ Follow these steps to run the project on your machine.
 * Python 3.8+ (for Backend)
 * Expo Go app installed on your physical phone.
 
-### 2. Backend Setup (The Kitchen)
+### 2. Backend Setup
 The backend must be running first to process images.
 
 1. Navigate to the backend folder:
@@ -67,7 +67,7 @@ The backend must be running first to process images.
 
    (You should see: Running on http://0.0.0.0:8000)
 
-### 3. Frontend Setup (The Dining Room)
+### 3. Frontend Setup
 
 1. Open a new terminal and navigate to the frontend:
    cd frontend
