@@ -19,6 +19,7 @@ A full-stack mobile application that uses Machine Learning to classify waste ite
 
 ## Project Structure
 
+```text
 final-project/
 ├── backend/             # Flask Server & API Logic
 │   ├── main.py          # Entry point for the server
