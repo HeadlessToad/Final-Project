@@ -33,6 +33,7 @@ final-project/
 │   ├── dummy_model.py   # Model inference logic
 │   └── data/            # Dataset & training scripts
 └── shared/              # Shared configurations (Class mappings, API spec)
+```
 
 ## Local Setup Guide
 
