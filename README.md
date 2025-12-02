@@ -66,7 +66,17 @@ The backend must be running first to process images.
 
 5. Run the server:
    python main.py
+   
+   ## Connecting via Tunnel (University/Public Wi-Fi)
 
+   If you are developing on a restricted network (like a University or Office) where your phone cannot connect to your computer's local IP, use **ngrok** to create a secure tunnel.
+
+   ### 1. Install & Start ngrok
+   In your backend terminal (keep Python running in another window), run:
+   
+   ```bash
+   ngrok http 8000
+   ```
    (You should see: Running on http://0.0.0.0:8000)
 
 ### 3. Frontend Setup
