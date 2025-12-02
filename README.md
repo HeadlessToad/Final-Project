@@ -66,8 +66,9 @@ The backend must be running first to process images.
 
 5. Run the server:
    python main.py
-   
-   ## Connecting via Tunnel (University/Public Wi-Fi)
+
+   (You should see: Running on http://0.0.0.0:8000)
+## Connecting via Tunnel (University/Public Wi-Fi)
 
    If you are developing on a restricted network (like a University or Office) where your phone cannot connect to your computer's local IP, use **ngrok** to create a secure tunnel.
 
@@ -77,8 +78,23 @@ The backend must be running first to process images.
    ```bash
    ngrok http 8000
    ```
-   (You should see: Running on http://0.0.0.0:8000)
-
+   _(If ngrok is not installed, download it from ngrok.com and place the .exe in your project folder, then run .\ngrok http 8000)._
+   
+   2. Copy the Forwarding URL
+   Look for the line in the terminal that looks like this: Forwarding https://a1b2-c3d4.ngrok-free.app -> http://localhost:8000
+   
+   Copy the https URL.
+   
+   3. Update the Frontend
+   Open frontend/src/screens/WasteClassifier.tsx and update the API URL:
+   
+   ```TypeScript
+   
+   // Replace with your unique ngrok URL
+   const apiUrl = "[https://your-url-here.ngrok-free.app/api/classify](https://your-url-here.ngrok-free.app/api/classify)";
+   ```
+   4. Reload
+   Reload the app on your phone. It will now connect securely from any network (4G, Wi-Fi, etc.).
 ### 3. Frontend Setup
 
 1. Open a new terminal and navigate to the frontend:
