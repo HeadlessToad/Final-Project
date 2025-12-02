@@ -72,7 +72,7 @@ The backend must be running first to process images.
 
    If you are developing on a restricted network (like a University or Office) where your phone cannot connect to your computer's local IP, use **ngrok** to create a secure tunnel.
 
-   ### 1. Install & Start ngrok
+   1. Install & Start ngrok
    In your backend terminal (keep Python running in another window), run:
    
    ```bash
@@ -95,6 +95,7 @@ The backend must be running first to process images.
    ```
    4. Reload
    Reload the app on your phone. It will now connect securely from any network (4G, Wi-Fi, etc.).
+---
 ### 3. Frontend Setup
 
 1. Open a new terminal and navigate to the frontend:
