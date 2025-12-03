@@ -1,4 +1,0 @@
-path: C:/Users/doppe/Documents/Final-Project/ml/data/trashnet_det
-train: images/train
-val: images/val
-names: ['cardboard', 'glass', 'metal', 'paper', 'plastic', 'trash']
