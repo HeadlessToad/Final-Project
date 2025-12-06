@@ -10,6 +10,10 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+
 # Ignore environment variable files
 *.json
 node_modules
+tem_runs/
+.env
+.ps1

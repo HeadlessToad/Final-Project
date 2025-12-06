@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Dimensions,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
@@ -15,6 +16,9 @@ import { useAuth } from "../context/AuthContext";
 export default function WasteClassifier() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<any>(null);
+  const [annotatedImageSource, setAnnotatedImageSource] = useState<
+    string | null
+  >(null);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
@@ -41,6 +45,7 @@ export default function WasteClassifier() {
     if (!result.canceled) {
       setImageUri(result.assets[0].uri);
       setPrediction(null); // Reset previous results
+      setAnnotatedImageSource(null); // Reset previous annotated image
     }
   };
 
@@ -71,7 +76,8 @@ export default function WasteClassifier() {
       // If using Android Emulator, use 'http://10.0.2.2:8000/api/classify'
       // If using iOS Simulator, use 'http://127.0.0.1:8000/api/classify'
       // If using a physical device, use your PC's LAN IP (e.g., http://192.168.1.5:8000/api/classify)
-      const apiUrl = "http://192.168.1.115:8000/api/classify";
+      const API_BASE_URL = "https://waste-classifier-89824582784.us-central1.run.app";
+      const apiUrl = `${API_BASE_URL}/predict`;
 
       const response = await axios.post(apiUrl, formData, {
         headers: {
@@ -79,7 +85,20 @@ export default function WasteClassifier() {
         },
       });
 
-      setPrediction(response.data);
+      const data = response.data;
+
+      setPrediction(data);
+      // --- NEW: Process Annotated Image ---
+      if (data.annotated_image_base64) {
+        // Prepend the data URI scheme for React Native Image component
+        setAnnotatedImageSource(
+          `data:image/jpeg;base64,${data.annotated_image_base64}`
+        );
+        console.log("Annotated image received.");
+      } else {
+        setAnnotatedImageSource(null);
+        console.log("No annotated image received.");
+      }
     } catch (error) {
       console.error(error);
       Alert.alert("Error", "Could not connect to the ML Backend.");
@@ -96,7 +115,10 @@ export default function WasteClassifier() {
 
       {imageUri && (
         <View style={styles.previewContainer}>
-          <Image source={{ uri: imageUri }} style={styles.image} />
+          <Image
+            source={{ uri: annotatedImageSource || imageUri }}
+            style={styles.image}
+          />
 
           {loading ? (
             <ActivityIndicator size="large" color="#00ff00" />
@@ -121,6 +143,9 @@ export default function WasteClassifier() {
   );
 }
 
+const { width, height } = Dimensions.get("window");
+const imageSize = Math.min(width, height) * 0.8;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -130,7 +155,12 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
   previewContainer: { marginTop: 20, alignItems: "center" },
-  image: { width: 200, height: 200, borderRadius: 10, marginBottom: 10 },
+  image: {
+    width: imageSize,
+    height: imageSize,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
   resultContainer: {
     marginTop: 20,
     padding: 15,
