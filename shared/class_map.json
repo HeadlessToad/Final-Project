@@ -1,18 +1,18 @@
 {
   "index_to_name": {
-    "0": "glass",
-    "1": "paper",
-    "2": "cardboard",
-    "3": "plastic",
-    "4": "metal",
-    "5": "trash"
+    "0": "BIODEGRADABLE",
+    "1": "CARDBOARD",
+    "2": "GLASS",
+    "3": "METAL",
+    "4": "PAPER",
+    "5": "PLASTIC"
   },
   "name_to_index": {
-    "glass": 0,
-    "paper": 1,
-    "cardboard": 2,
-    "plastic": 3,
-    "metal": 4,
-    "trash": 5
+    "BIODEGRADABLE": 0,
+    "CARDBOARD": 1,
+    "GLASS": 2,
+    "METAL": 3,
+    "PAPER": 4,
+    "PLASTIC": 5
   }
 }

@@ -1,98 +1,72 @@
-import sys
 import os
-import datetime
+import requests
 from flask import Flask, request, jsonify
-import firebase_admin
-from firebase_admin import credentials, firestore
+from dotenv import load_dotenv
 
-# --- 1. SETUP PATHS ---
-# Add project root to system path to allow importing 'ml'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# 1. Load the URL from the .env file
+load_dotenv()
+CLOUD_MODEL_URL = os.getenv("CLOUD_MODEL_URL")
 
 app = Flask(__name__)
 
-# --- 2. SETUP FIREBASE ---
+# GLOBAL VARIABLE: Define version manually or read from file
+MODEL_VERSION = "YOLO-Waste-v1.0 (Plastic/Paper/Metal)"
+MODEL_PATH = "ml/best.pt" 
 
+@app.route('/model-info', methods=['GET'])
+def get_model_info():
+    """Returns the currently active model version."""
+    
+    # Check if file actually exists in the container
+    file_exists = os.path.exists(MODEL_PATH)
+    
+    # Optional: Get file size to confirm it's the full model
+    file_size = os.path.getsize(MODEL_PATH) / (1024 * 1024) if file_exists else 0
+    
+    return jsonify({
+        "status": "active",
+        "model_version": MODEL_VERSION,
+        "model_file_found": file_exists,
+        "model_size_mb": round(file_size, 2),
+        "engine": "YOLO"
+    }), 200
 
-def init_firebase():
-    """Initializes Firestore connection."""
+def classify_with_cloud(image_file):
+    """Sends image to Google Cloud Run for prediction."""
     try:
-        if not firebase_admin._apps:
-            # Use the path found in your old server.py
-            # MAKE SURE THIS PATH IS CORRECT ON YOUR MACHINE
-            cred_path = os.path.join(os.path.dirname(
-                __file__), 'serviceAccountKey.json')
-
-            if os.path.exists(cred_path):
-                cred = credentials.Certificate(cred_path)
-                firebase_admin.initialize_app(cred)
-                print("✅ Firebase initialized successfully.")
-            else:
-                print(f"⚠️ Warning: Firebase key not found at {cred_path}")
-                return None
-        return firestore.client()
+        # Prepare the file to send
+        # We need to reset the file pointer to the beginning before sending
+        image_file.seek(0)
+        files = {'file': ('image.jpg', image_file, 'image/jpeg')}
+        
+        print(f"☁️ Sending request to: {CLOUD_MODEL_URL}/predict...")
+        response = requests.post(CLOUD_MODEL_URL + "/predict", files=files, timeout=30)
+        
+        # Check if the cloud said "OK"
+        response.raise_for_status()
+        
+        # Return the JSON answer from the cloud
+        return response.json()
     except Exception as e:
-        print(f"❌ Firebase Error: {e}")
+        print(f"❌ Cloud Error: {e}")
         return None
 
-
-# Initialize DB
-db = init_firebase()
-
-# --- 3. ROUTES ---
-
-
-@app.route('/health', methods=['GET'])
-def health():
-    return jsonify({"ok": True, "service": "Waste Sort API"})
-
-
-@app.route('/api/classify', methods=['POST'])
-def classify():
+@app.route('/predict', methods=['POST'])
+def predict_route():
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
-
+        
     file = request.files['file']
-
-    user_id = request.form.get('user_id', None)
-
-    try:
-        # A. Read Image
-        image_bytes = file.read()
-
-        # B. Run ML Model (Lazy Import)
-        from ml.dummy_model import predict_dummy
-        result = predict_dummy(image_bytes)
-
-        # C. Save to Firestore (The "Memory")
-        if db:
-            # If user_id is provided, save to their history
-            if user_id:
-                print(f"👤 Saving to user history: {user_id}")
-                collection_ref_user = db.collection('users').document(
-                    user_id).collection('scans')
-                collection_ref_user.add({
-                    'prediction': result['prediction'],
-                    'confidence': result['confidence'],
-                    'timestamp': firestore.SERVER_TIMESTAMP,
-                })
-            # We create a record of this scan
-            doc_ref = db.collection('scans').add({
-                'prediction': result['prediction'],
-                'confidence': result['confidence'],
-                'timestamp': firestore.SERVER_TIMESTAMP,
-                'tips': result['tips'],
-                # In the future, you can add 'user_id' here from the request
-            })
-            print(f"💾 Saved result to Firestore")
-
-        return jsonify(result)
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"error": str(e)}), 500
-
+    
+    # 🔀 LOGIC SWITCH: Use Cloud if URL is set, otherwise fail (or use local)
+    if CLOUD_MODEL_URL:
+        result = classify_with_cloud(file)
+        if result:
+            return jsonify(result)
+        else:
+            return jsonify({"error": "Cloud classification failed"}), 500
+    else:
+        return jsonify({"error": "No Cloud URL configured"}), 500
 
 if __name__ == '__main__':
-    # Run on your LAN IP so the phone can connect
     app.run(host='0.0.0.0', port=8000, debug=True)

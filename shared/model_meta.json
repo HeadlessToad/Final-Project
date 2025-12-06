@@ -1,8 +1,8 @@
 {
-  "version": "v0-dummy",
+  "version": "v1.0.0",
   "trained_on": "2025-09-14",
-  "dataset": "TrashNet (glass, paper, cardboard, plastic, metal, trash)",
-  "image_size": [224, 224],
+  "dataset": "Garbage Detection – 6 Waste Categories (BIODEGRADABLE, CARDBOARD, GLASS, METAL, PAPER, PLASTIC)",
+  "image_size": [640, 640],
   "preprocess": {
     "normalize": "rescale to [0,1]",
     "rgb_order": "RGB"
