@@ -2,7 +2,7 @@ task: detect
 mode: train
 model: yolo11n.pt
 data: /kaggle/working/my_data.yaml
-epochs: 60
+epochs: 100
 time: null
 patience: 15
 batch: 16
