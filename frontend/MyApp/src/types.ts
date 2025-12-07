@@ -1,35 +1,45 @@
-// // src/types.ts
+// src/types.ts
 
-// // This defines which screens take which parameters
-// export type RootStackParamList = {
-//   Login: undefined;    // No parameters expected
-//   Register: undefined;
-//   Home: undefined;
-//   Classify: undefined;
-// };
+import { LatLng } from 'react-native-maps'; 
 
-// export interface TestItem {
-//   id: string;
-//   name: string;
-//   status: 'active' | 'processed';
-//   timestamp: number;
-// }
+/** Placeholder for Classification Result Structure */
+export interface ClassificationResult {
+  prediction: string;       
+  confidence: number;       
+  instructions: string;     
+}
 
+// ... (You would include UserProfile, PointTransaction, etc., here) ...
 
-// src/types.ts (Ensure this includes all routes used in AppNavigator.tsx)
-
+/**
+ * Defines which screens take which parameters.
+ */
 export type RootStackParamList = {
-  // UNAUTHORIZED
-  Welcome: undefined;            // WelcomeScreen
-  Login: undefined;              // Login form
+  // --- UNAUTHORIZED FLOW ---
+  Welcome: undefined; 
+  Login: undefined; 
   Register: undefined;
   
-  // AUTHORIZED
+  // --- AUTHORIZED FLOW ---
   Home: undefined;
-  Classify: undefined;
-  Profile: undefined;
+  
+  // CORE APP FEATURES
+  Classify: undefined; 
+  ClassificationResults: ClassificationResult & { imageUrl: string };
+  
+  // GAMIFICATION & ACCOUNT
+  Profile: undefined;         
   Rewards: undefined;
-  ClassificationResults: { /* ... parameters here ... */ }; 
-  // ... any other screens ...
+  PointsHistory: undefined;
+    
+  // 🔥 UPDATED/NEW ROUTES:
+  PersonalDetails: undefined;         // Edit Profile/Personal Details Form
+  // 🔥 NEW GENERIC EDIT ROUTE
+  EditSingleField: {
+    fieldKey: 'name' | 'gender' | 'city' | 'birthDate' | 'phone';
+    currentValue: string;
+    // Optional: callback function to update parent state after saving (more complex but cleaner)
+  };
+  ClassificationHistory: undefined;   // View all past scans (History)
+  RecyclingCenters: undefined;        // Map view for nearby centers
 };
-// ... rest of the file ...

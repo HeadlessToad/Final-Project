@@ -1,50 +1,3 @@
-// import React from "react";
-// import { NavigationContainer } from "@react-navigation/native";
-// import { createNativeStackNavigator } from "@react-navigation/native-stack";
-// import { RootStackParamList } from "../types";
-
-// // Import Screens
-// import LoginScreen from "../screens/LoginScreen";
-// import RegisterScreen from "../screens/RegisterScreen";
-// import HomeScreen from "../screens/HomeScreen(tyota)";
-// import WasteClassifier from "../screens/WasteClassifier";
-
-// const Stack = createNativeStackNavigator<RootStackParamList>();
-
-// export default function AppNavigator({ user, onLogin, onLogout }: any) {
-//   return (
-//     <NavigationContainer>
-//       <Stack.Navigator screenOptions={{ headerShown: false }}>
-//         {user ? (
-//           // ---------------- AUTHORIZED STACK ----------------
-//           <>
-//             <Stack.Screen name="Home">
-//               {/* Pass navigation props down */}
-//               {(props) => <HomeScreen {...props} onLogout={onLogout} />}
-//             </Stack.Screen>
-
-//             {/* THE NEW ROUTE */}
-//             <Stack.Screen
-//               name="Classify"
-//               component={WasteClassifier}
-//               options={{ headerShown: true, title: "Scan Waste" }}
-//             />
-//           </>
-//         ) : (
-//           // ---------------- UNAUTHORIZED STACK ----------------
-//           <>
-//             <Stack.Screen name="Login">
-//               {(props) => <LoginScreen {...props} onLogin={onLogin} />}
-//             </Stack.Screen>
-//             <Stack.Screen name="Register" component={RegisterScreen} />
-//           </>
-//         )}
-//       </Stack.Navigator>
-//     </NavigationContainer>
-//   );
-// }
-// src/navigation/AppNavigator.tsx
-
 // src/navigation/AppNavigator.tsx (Revised for cleaner naming)
 
 import React from "react";
@@ -58,10 +11,13 @@ import WelcomeScreen from "../screens/WelcomeScreen"; // Renamed splash file
 import LoginScreen from "../screens/LoginScreen";     // Your Login form component (File name kept)
 import RegisterScreen from "../screens/RegisterScreen";
 import HomeScreen from "../screens/HomeScreen";       // Your new graphical home page
-import TempHomeScreen from "../screens/ProfileScreen"; // ADD THIS IMPORT
+import ProfileScreen from "../screens/ProfileScreen";
+import PersonalDetailsScreen from "../screens/PersonalDetailsScreen";
+import EditSingleFieldScreen from "../screens/EditSingleFieldScreen";
+import ClassificationHistoryScreen from "../screens/ClassificationHistoryScreen"; 
+import PointsHistoryScreen from "../screens/PointsHistoryScreen";
 
-// TEMP/Placeholder Screens
-const ProfileScreen = () => null; 
+
 const RewardsScreen = () => null; 
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -80,18 +36,37 @@ export default function AppNavigator({ user, role }: AppNavigatorProps) {
                     <>
                         {/* HOME SCREEN (The entry point for logged-in users) */}
                         <Stack.Screen name="Home" component={HomeScreen} />
-                        {/* <Stack.Screen name="Classify" component={WasteClassifier} options={{ headerShown: true, title: "Scan Waste" }} /> */}
-                        {/* ... ClassificationResults, Profile, Rewards ... */}
                         <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: true, title: "My Profile" }} />
+                        <Stack.Screen 
+                            name="PersonalDetails" // 🔥 The route name used in ProfileScreen.tsx
+                            component={PersonalDetailsScreen} // 🔥 The component file
+                            options={{ headerShown: true, title: "Personal Details" }}
+                        />
+                        <Stack.Screen 
+                            name="ClassificationHistory" // The route name used in ProfileScreen.tsx
+                            component={ClassificationHistoryScreen} 
+                            options={{ headerShown: true, title: "Classification History" }}
+                        />
+                        <Stack.Screen 
+                         name="EditSingleField" // 🔥 NEW ROUTE
+                         component={EditSingleFieldScreen} 
+                         // Title will be set dynamically in the component using useLayoutEffect
+                         options={{ headerShown: true }} 
+                        />
+                        <Stack.Screen 
+                            name="PointsHistory" 
+                            component={PointsHistoryScreen} 
+                            options={{ headerShown: true, title: "PointsHistory" }}
+                        />
                         <Stack.Screen name="Rewards" component={RewardsScreen} options={{ headerShown: true, title: "Rewards Catalog" }} />
 
                     </>
-                ) : (
+                ) : (   
                     // ---------------- UNAUTHORIZED STACK (Simplified) ----------------
                     <>
                         {/* 1. WELCOME/SPLASH SCREEN (Initial screen for unauthorized users) */}
                         <Stack.Screen name="Welcome" component={WelcomeScreen} />
-                        
+                         
                         {/* 2. LOGIN FORM (The file named LoginScreen.tsx) */}
                         <Stack.Screen 
                             name="Login" 
