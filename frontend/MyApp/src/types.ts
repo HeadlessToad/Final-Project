@@ -30,6 +30,12 @@ export type RootStackParamList = {
   // GAMIFICATION & ACCOUNT
   Profile: undefined;         
   Rewards: undefined;
+
+  RewardDetails: { 
+        selectedReward: RewardItem; // Passes the selected reward object
+        // NOTE: We don't need updateUserData here, we'll use a hook.
+    };
+    
   PointsHistory: undefined;
     
   // 🔥 UPDATED/NEW ROUTES:
@@ -43,3 +49,11 @@ export type RootStackParamList = {
   ClassificationHistory: undefined;   // View all past scans (History)
   RecyclingCenters: undefined;        // Map view for nearby centers
 };
+
+export interface RewardItem {
+    id: number;
+    title: string;
+    points: number;
+    image: string; // URL
+    description: string;
+}

@@ -16,9 +16,10 @@ import PersonalDetailsScreen from "../screens/PersonalDetailsScreen";
 import EditSingleFieldScreen from "../screens/EditSingleFieldScreen";
 import ClassificationHistoryScreen from "../screens/ClassificationHistoryScreen"; 
 import PointsHistoryScreen from "../screens/PointsHistoryScreen";
+import RewardsScreen from "../screens/RewardsScreen";
+import RewardDetailsScreen from "../screens/RewardDetailsScreen";
+import SettingsScreen from "../screens/SettingsScreen";
 
-
-const RewardsScreen = () => null; 
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -56,10 +57,15 @@ export default function AppNavigator({ user, role }: AppNavigatorProps) {
                         <Stack.Screen 
                             name="PointsHistory" 
                             component={PointsHistoryScreen} 
-                            options={{ headerShown: true, title: "PointsHistory" }}
+                            options={{ headerShown: true, title: "Points History" }}
                         />
                         <Stack.Screen name="Rewards" component={RewardsScreen} options={{ headerShown: true, title: "Rewards Catalog" }} />
-
+                        <Stack.Screen 
+                            name="RewardDetails" // 🔥 NEW ROUTE
+                            component={RewardDetailsScreen} 
+                            options={{ headerShown: true, title: "Reward Details" }}
+                        />
+                        <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: true, title: "Settings" }} />
                     </>
                 ) : (   
                     // ---------------- UNAUTHORIZED STACK (Simplified) ----------------

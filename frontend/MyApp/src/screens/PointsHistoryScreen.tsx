@@ -8,11 +8,11 @@ import {
   ScrollView, 
   FlatList, 
   Platform,
-} from 'react-native'; // <-- All necessary core components are imported here
+} from 'react-native'; 
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
 import { ArrowUpCircle, ArrowDownCircle, Coins } from 'lucide-react-native'; 
-import { LinearGradient } from 'expo-linear-gradient'; // <-- Crucial for the header gradient
+import { LinearGradient } from 'expo-linear-gradient';
 
 const COLORS = {
   // Main Theme Colors
@@ -23,14 +23,15 @@ const COLORS = {
   text: '#1B5E20', 
   onSurfaceVariant: '#616161', 
   outline: '#E0E0E0',
+  
   // Specific Colors for Points History (Matching the image)
-  earnedGreen: '#00C853',
-  redeemedOrange: '#FF9800',
-  lightGreenBackground: '#E8F5E9',
-  lightOrangeBackground: '#FFF3E0',
+  earnedGreen: '#00C853', // Bright Green for points/icons
+  redeemedOrange: '#FF9800', // Orange/Amber for points/icons
+  lightGreenBackground: '#E8F5E9', // Very light green background color
+  lightOrangeBackground: '#FFF3E0', // Very light orange background color
 };
 
-// --- MOCK DATA (Matches the structure from Figma code) ---
+// --- MOCK DATA (Unchanged) ---
 interface Transaction {
     id: number;
     type: 'earn' | 'redeem';
@@ -55,7 +56,7 @@ const transactions: Transaction[] = [
 type PointsHistoryProps = NativeStackScreenProps<RootStackParamList, "PointsHistory">;
 
 
-// --- Transaction Row Renderer ---
+// --- Transaction Row Renderer (Unchanged) ---
 const TransactionRow: React.FC<{ item: Transaction }> = ({ item }) => {
     const isEarn = item.type === 'earn';
     const iconColor = isEarn ? COLORS.earnedGreen : COLORS.redeemedOrange;
@@ -64,18 +65,13 @@ const TransactionRow: React.FC<{ item: Transaction }> = ({ item }) => {
 
     return (
         <View style={styles.transactionRow}>
-            {/* Left Icon (Up/Down Circle) */}
             <View style={[styles.transactionIconCircle, { backgroundColor: isEarn ? COLORS.lightGreenBackground : COLORS.lightOrangeBackground }]}>
                 <IconComponent size={20} color={iconColor} />
             </View>
-
-            {/* Description and Date */}
             <View style={styles.transactionDetails}>
                 <Text style={styles.descriptionText}>{item.description}</Text>
                 <Text style={styles.dateText}>{item.date}</Text>
             </View>
-
-            {/* Points Value */}
             <Text style={[styles.pointsValueText, { color: iconColor }]}>
                 {isEarn ? '+' : '-'}
                 {pointsValue}
@@ -100,29 +96,44 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
                 
                 {/* --- 1. Summary Cards (Top Section) --- */}
                 <View style={styles.summaryContainer}>
-                    {/* Earned Card */}
-                    <View style={styles.summaryCard}>
-                        <ArrowUpCircle size={32} color={COLORS.earnedGreen} style={styles.summaryIcon} />
-                        <Text style={[styles.summaryLabel, { color: COLORS.earnedGreen }]}>Earned</Text>
-                        <View style={styles.summaryPointsValue}>
-                            <Coins size={20} color={COLORS.earnedGreen} />
-                            <Text style={[styles.summaryTotal, { color: COLORS.earnedGreen }]}>
-                                {totalEarned}
-                            </Text>
+                    
+                    {/* Earned Card (WITH GRADIENT) */}
+                    <LinearGradient
+                        colors={[COLORS.lightGreenBackground, COLORS.white]} // Subtle green to white gradient
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.summaryCardGradient}
+                    >
+                        <View style={styles.summaryCardContent}>
+                            <ArrowUpCircle size={32} color={COLORS.earnedGreen} style={styles.summaryIcon} />
+                            <Text style={[styles.summaryLabel, { color: COLORS.earnedGreen }]}>Earned</Text>
+                            <View style={styles.summaryPointsValue}>
+                                <Coins size={20} color={COLORS.earnedGreen} />
+                                <Text style={[styles.summaryTotal, { color: COLORS.earnedGreen }]}>
+                                    {totalEarned}
+                                </Text>
+                            </View>
                         </View>
-                    </View>
+                    </LinearGradient>
 
-                    {/* Redeemed Card */}
-                    <View style={styles.summaryCard}>
-                        <ArrowDownCircle size={32} color={COLORS.redeemedOrange} style={styles.summaryIcon} />
-                        <Text style={[styles.summaryLabel, { color: COLORS.redeemedOrange }]}>Redeemed</Text>
-                        <View style={styles.summaryPointsValue}>
-                            <Coins size={20} color={COLORS.redeemedOrange} />
-                            <Text style={[styles.summaryTotal, { color: COLORS.redeemedOrange }]}>
-                                {totalRedeemed}
-                            </Text>
+                    {/* Redeemed Card (WITH GRADIENT) */}
+                    <LinearGradient
+                        colors={[COLORS.lightOrangeBackground, COLORS.white]} // Subtle orange to white gradient
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.summaryCardGradient}
+                    >
+                         <View style={styles.summaryCardContent}>
+                            <ArrowDownCircle size={32} color={COLORS.redeemedOrange} style={styles.summaryIcon} />
+                            <Text style={[styles.summaryLabel, { color: COLORS.redeemedOrange }]}>Redeemed</Text>
+                            <View style={styles.summaryPointsValue}>
+                                <Coins size={20} color={COLORS.redeemedOrange} />
+                                <Text style={[styles.summaryTotal, { color: COLORS.redeemedOrange }]}>
+                                    {totalRedeemed}
+                                </Text>
+                            </View>
                         </View>
-                    </View>
+                    </LinearGradient>
                 </View>
 
                 {/* --- 2. Transactions List --- */}
@@ -152,19 +163,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 20,
     paddingTop: 10,
+    marginHorizontal: -5, // Compensate for card margin
   },
-  summaryCard: {
+  summaryCardGradient: { // Applied to LinearGradient wrapper
     flex: 1,
-    backgroundColor: COLORS.white,
     borderRadius: 12,
-    padding: 15,
     marginHorizontal: 5,
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
+  },
+  summaryCardContent: { // Content inside the gradient card
+    backgroundColor: COLORS.white, // Ensure content is white to see the gradient edge
+    borderRadius: 12,
+    padding: 15,
+    alignItems: 'center',
+    // We add a slight margin/padding to push the content away from the gradient edge
   },
   summaryIcon: {
     marginBottom: 5,
@@ -184,7 +200,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // --- 2. List Styles ---
+  // --- 2. List Styles (Unchanged) ---
   listSection: {
     marginBottom: 20,
   },
@@ -195,7 +211,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   
-  // --- Transaction Row Styles ---
+  // --- Transaction Row Styles (Unchanged) ---
   transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',

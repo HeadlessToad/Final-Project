@@ -14,7 +14,6 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 
 
-
 const COLORS = {
     primary: '#4CAF50', // Green
     primaryLight: '#8BC34A', // Lighter Green
@@ -62,11 +61,11 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     
     // --- Data for Menu Items ---
     const menuItems: MenuItem[] = [
-        { icon: <User size={20} color={COLORS.onSurfaceVariant} />, label: 'Personal Details', screen: 'PersonalDetails' as keyof RootStackParamList }, // Using Profile temporarily
-        { icon: <History size={20} color={COLORS.onSurfaceVariant} />, label: 'Classification History', screen: 'ClassificationHistory' },
-        { icon: <TrendingUp size={20} color={COLORS.onSurfaceVariant} />, label: 'Points History', screen: 'Rewards' as keyof RootStackParamList }, // Reusing Rewards route
+        { icon: <User size={20} color={COLORS.onSurfaceVariant} />, label: 'Personal Details', screen: 'Profile' as keyof RootStackParamList }, // Using Profile temporarily
+        { icon: <History size={20} color={COLORS.onSurfaceVariant} />, label: 'Classification History', screen: 'ClassificationHistory' as keyof RootStackParamList },
+        { icon: <TrendingUp size={20} color={COLORS.onSurfaceVariant} />, label: 'Points History', screen: 'PointsHistory' as keyof RootStackParamList }, // Reusing Rewards route
         { icon: <MessageSquare size={20} color={COLORS.onSurfaceVariant} />, label: 'Feedback', screen: 'Profile' as keyof RootStackParamList }, // Placeholder
-        { icon: <Settings size={20} color={COLORS.onSurfaceVariant} />, label: 'Settings', screen: 'Profile' as keyof RootStackParamList } // Placeholder
+        { icon: <Settings size={20} color={COLORS.onSurfaceVariant} />, label: 'Settings', screen: 'Settings' as keyof RootStackParamList }
     ];
 
     const handleLogout = () => {
