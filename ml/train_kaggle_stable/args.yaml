@@ -1,12 +1,12 @@
 task: detect
 mode: train
-model: yolo11n.pt
+model: yolo11s.pt
 data: /kaggle/working/my_data.yaml
-epochs: 100
+epochs: 50
 time: null
 patience: 15
-batch: 16
-imgsz: 640
+batch: 8
+imgsz: 1280
 save: true
 save_period: -1
 cache: false

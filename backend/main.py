@@ -1,72 +1,53 @@
 import os
-import requests
+import sys
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 
-# 1. Load the URL from the .env file
+# Add the parent directory to sys.path to allow importing from 'ml'
+# This is required because 'ml' is a sibling directory to 'backend'
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+try:
+    from ml.prediction_service import get_classification_result
+except ImportError as e:
+    print(f"❌ Error importing prediction_service: {e}")
+    get_classification_result = None
+
 load_dotenv()
-CLOUD_MODEL_URL = os.getenv("CLOUD_MODEL_URL")
 
 app = Flask(__name__)
 
-# GLOBAL VARIABLE: Define version manually or read from file
-MODEL_VERSION = "YOLO-Waste-v1.0 (Plastic/Paper/Metal)"
-MODEL_PATH = "ml/best.pt" 
-
-@app.route('/model-info', methods=['GET'])
-def get_model_info():
-    """Returns the currently active model version."""
-    
-    # Check if file actually exists in the container
-    file_exists = os.path.exists(MODEL_PATH)
-    
-    # Optional: Get file size to confirm it's the full model
-    file_size = os.path.getsize(MODEL_PATH) / (1024 * 1024) if file_exists else 0
-    
-    return jsonify({
-        "status": "active",
-        "model_version": MODEL_VERSION,
-        "model_file_found": file_exists,
-        "model_size_mb": round(file_size, 2),
-        "engine": "YOLO"
-    }), 200
-
-def classify_with_cloud(image_file):
-    """Sends image to Google Cloud Run for prediction."""
-    try:
-        # Prepare the file to send
-        # We need to reset the file pointer to the beginning before sending
-        image_file.seek(0)
-        files = {'file': ('image.jpg', image_file, 'image/jpeg')}
-        
-        print(f"☁️ Sending request to: {CLOUD_MODEL_URL}/predict...")
-        response = requests.post(CLOUD_MODEL_URL + "/predict", files=files, timeout=30)
-        
-        # Check if the cloud said "OK"
-        response.raise_for_status()
-        
-        # Return the JSON answer from the cloud
-        return response.json()
-    except Exception as e:
-        print(f"❌ Cloud Error: {e}")
-        return None
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "active", "mode": "local_inference"}), 200
 
 @app.route('/predict', methods=['POST'])
 def predict_route():
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
         
+    if get_classification_result is None:
+        return jsonify({"error": "Prediction service not available"}), 500
+
     file = request.files['file']
-    
-    # 🔀 LOGIC SWITCH: Use Cloud if URL is set, otherwise fail (or use local)
-    if CLOUD_MODEL_URL:
-        result = classify_with_cloud(file)
-        if result:
-            return jsonify(result)
-        else:
-            return jsonify({"error": "Cloud classification failed"}), 500
-    else:
-        return jsonify({"error": "No Cloud URL configured"}), 500
+    try:
+        # Read file bytes
+        image_bytes = file.read()
+        
+        # Run local inference
+        # prediction_service.get_classification_result handles:
+        # 1. Loading the YOLO model
+        # 2. Running inference
+        # 3. Drawing bounding boxes
+        # 4. Encoding the annotated image to Base64
+        result = get_classification_result(image_bytes)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"❌ Prediction Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
+    # Use port 8000 to match frontend configuration
     app.run(host='0.0.0.0', port=8000, debug=True)

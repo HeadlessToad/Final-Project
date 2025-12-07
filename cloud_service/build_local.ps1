@@ -22,7 +22,7 @@ Copy-Item -Recurse "../shared" "build_context/"
 
 # 4. Copy the model (Go up one level to find 'ml')
 # 🚨 Ensure this path matches your actual model location!
-Copy-Item "../ml/train_kaggle_stable/weights/best_weights.pt" "build_context/weights/"
+Copy-Item "../ml/train_kaggle_stable/weights/best.pt" "build_context/weights/"
 
 # 5. Build the Docker Image
 docker build -t waste-classifier-cloud ./build_context

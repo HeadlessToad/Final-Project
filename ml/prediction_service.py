@@ -14,7 +14,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLASS_MAP_PATH = os.path.join(BASE_DIR, '..', 'shared', 'class_map.json')
 MODEL_META_PATH = os.path.join(BASE_DIR, '..', 'shared', 'model_meta.json')
 MODEL_WEIGHTS_PATH = os.path.join(
-    BASE_DIR, 'train_kaggle_stable', 'weights', 'best_weights.pt')  # Your weights file
+    BASE_DIR, 'train_kaggle_stable_2', 'weights', 'best.pt')  # Your weights file
 
 try:
     with open(CLASS_MAP_PATH, 'r') as f:
@@ -28,11 +28,11 @@ except FileNotFoundError:
 try:
     with open(MODEL_META_PATH, 'r') as f:
         MODEL_META = json.load(f)
-        MODEL_VERSION = MODEL_META.get("version", "v1-yolo-default")
+        MODEL_VERSION = MODEL_META.get("version", "v2s-yolo-default")
         CONF_THRESHOLD = 0.25  # Standard confidence threshold for detection
 except FileNotFoundError:
     print(f"❌ Error: Model meta not found at {MODEL_META_PATH}")
-    MODEL_VERSION = "v1-yolo-default"
+    MODEL_VERSION = "v2s-yolo-default"
     CONF_THRESHOLD = 0.25
 
 # Simple tips mapping for the API response

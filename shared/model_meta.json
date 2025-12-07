@@ -1,8 +1,11 @@
 {
-  "version": "v1.0.0",
+  "version": "v2s-yolo",
   "trained_on": "2025-09-14",
   "dataset": "Garbage Detection – 6 Waste Categories (BIODEGRADABLE, CARDBOARD, GLASS, METAL, PAPER, PLASTIC)",
-  "image_size": [640, 640],
+  "image_size": [
+    640,
+    640
+  ],
   "preprocess": {
     "normalize": "rescale to [0,1]",
     "rgb_order": "RGB"

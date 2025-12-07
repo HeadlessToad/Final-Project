@@ -76,6 +76,7 @@ export default function WasteClassifier() {
       // If using Android Emulator, use 'http://10.0.2.2:8000/api/classify'
       // If using iOS Simulator, use 'http://127.0.0.1:8000/api/classify'
       // If using a physical device, use your PC's LAN IP (e.g., http://192.168.1.5:8000/api/classify)
+      // const url = "https://nia-unshattered-davin.ngrok-free.dev";
       const API_BASE_URL = "https://waste-classifier-89824582784.us-central1.run.app";
       const apiUrl = `${API_BASE_URL}/predict`;
 
