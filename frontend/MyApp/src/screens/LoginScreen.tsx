@@ -15,11 +15,11 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebaseConfig";
-// import { Mail, Lock, ArrowLeft, Google } from 'lucide-react-native'; 
+// If you want icons back, uncomment this: import { Mail, Lock, ArrowLeft, Google } from 'lucide-react-native'; 
 
 // Define colors (for reference)
 const COLORS = {
-  primary: '#4CAF50', 
+  primary: '#4CAF50',
   background: '#FFFFFF',
   text: '#1B5E20',
   placeholder: '#9E9E9E',
@@ -29,17 +29,17 @@ const COLORS = {
 };
 
 type LoginProps = {
-  navigation: NativeStackNavigationProp<RootStackParamList, "Login">; 
+  navigation: NativeStackNavigationProp<RootStackParamList, "Login">;
 };
 
 // --- Custom Header Component ---
 const CustomHeader = ({ navigation }: { navigation: LoginProps['navigation'] }) => (
-    <View style={styles.headerContainer}>
-        {/* Goes back to the WelcomeScreen (registered as 'Welcome') */}
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            {/* <ArrowLeft size={24} color={COLORS.text} /> */}
-        </TouchableOpacity>
-    </View>
+  <View style={styles.headerContainer}>
+    {/* Goes back to the WelcomeScreen (registered as 'Welcome') */}
+    <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+      {/* <ArrowLeft size={24} color={COLORS.text} /> */}
+    </TouchableOpacity>
+  </View>
 );
 
 export default function LoginScreen({ navigation }: LoginProps) {
@@ -54,13 +54,11 @@ export default function LoginScreen({ navigation }: LoginProps) {
     setErrorMessage(null);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // 🔥 SUCCESS: We do NOT navigate here. AuthContext detects the user 
-      // and AppNavigator switches automatically to 'Home'. This is the stable approach.
     } catch (error: any) {
       let msg = "Invalid email or password.";
       if (error.code === "auth/too-many-requests")
         msg = "Too many failed attempts. Try again later.";
-      
+
       setErrorMessage(msg);
     } finally {
       setLoading(false);
@@ -68,15 +66,20 @@ export default function LoginScreen({ navigation }: LoginProps) {
   };
 
   const handleGoogleLogin = () => { alert("Google Sign-in initiated (Setup required)."); };
-  const handleForgotPassword = () => { alert("Forgot Password? Navigating to reset screen (Setup required)."); };
-  
+
+  // Navigation function definition
+  const handleForgotPassword = () => {
+    // Correct execution: Calls navigation.navigate('ForgotPassword')
+    navigation.navigate('ForgotPassword' as any);
+  };
+
 
   return (
     <View style={styles.fullContainer}>
       <CustomHeader navigation={navigation} />
-      
+
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        
+
         <View style={styles.introContainer}>
           <Text style={styles.pageTitle}>Welcome Back!</Text>
           <Text style={styles.pageSubtitle}>Login to continue your eco journey</Text>
@@ -85,7 +88,7 @@ export default function LoginScreen({ navigation }: LoginProps) {
         {/* Email Input */}
         <Text style={styles.inputLabel}>Email</Text>
         <View style={[styles.inputContainer, errorMessage && styles.inputError]}>
-          {/* <Mail size={20} color={COLORS.placeholder} style={styles.inputIcon} /> */}
+          {/* Icon Placeholder */}
           <TextInput
             style={styles.inputField}
             placeholder="Enter your email"
@@ -100,7 +103,7 @@ export default function LoginScreen({ navigation }: LoginProps) {
         {/* Password Input */}
         <Text style={styles.inputLabel}>Password</Text>
         <View style={[styles.inputContainer, errorMessage && styles.inputError]}>
-          {/* <Lock size={20} color={COLORS.placeholder} style={styles.inputIcon} /> */}
+          {/* Icon Placeholder */}
           <TextInput
             style={styles.inputField}
             placeholder="Enter your password"
@@ -111,13 +114,18 @@ export default function LoginScreen({ navigation }: LoginProps) {
             autoCapitalize="none"
           />
         </View>
+
+        {/* 🔥 FIX: Forgot Password Link (Container added for correct vertical spacing) */}
+        <View style={styles.forgotPasswordContainer}>
+          <TouchableOpacity
+            onPress={handleForgotPassword}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </TouchableOpacity>
+        </View>
+
         
-        <TouchableOpacity 
-          onPress={handleForgotPassword} 
-          style={styles.forgotPasswordButton}
-        >
-          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-        </TouchableOpacity>
 
         {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
 
@@ -138,15 +146,14 @@ export default function LoginScreen({ navigation }: LoginProps) {
         </View>
 
         {/* Google Button */}
-        <TouchableOpacity 
-          style={styles.googleButton} 
-          onPress={handleGoogleLogin} 
+        <TouchableOpacity
+          style={styles.googleButton}
+          onPress={handleGoogleLogin}
           activeOpacity={0.8}
         >
-          {/* <Google size={24} color={COLORS.googleBlue} /> */}
           <Text style={styles.googleButtonText}>Google</Text>
         </TouchableOpacity>
-        
+
         {/* Register Link */}
         <View style={styles.registerLinkContainer}>
           <Text style={styles.registerLinkBaseText}>Don't have an account?</Text>
@@ -165,7 +172,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? 50 : 60, 
+    paddingTop: Platform.OS === 'android' ? 50 : 60,
     paddingHorizontal: 15,
     paddingBottom: 10,
   },
@@ -183,18 +190,26 @@ const styles = StyleSheet.create({
     borderColor: COLORS.outline,
     borderRadius: 10,
     paddingHorizontal: 15,
-    backgroundColor: COLORS.background, 
+    backgroundColor: COLORS.white,
     height: 55,
   },
   inputIcon: { marginRight: 10, },
   inputField: { flex: 1, fontSize: 16, color: COLORS.text, },
   inputError: { borderColor: COLORS.error, borderWidth: 1, },
-  forgotPasswordButton: { alignSelf: 'flex-end', marginTop: 5, },
+
+  // 🔥 NEW: Container to provide vertical space for the link
+  forgotPasswordContainer: {
+    width: '100%',
+    alignItems: 'flex-end',
+    marginBottom: 20,
+    marginTop: 5,
+  },
+
   forgotPasswordText: { color: COLORS.primary, fontSize: 14, fontWeight: '600', },
   loginButton: {
     backgroundColor: COLORS.primary,
     padding: 16,
-    borderRadius: 30, 
+    borderRadius: 30,
     alignItems: 'center',
     marginBottom: 20,
   },
@@ -216,7 +231,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: COLORS.outline, 
+    borderColor: COLORS.outline,
     marginBottom: 30,
   },
   googleButtonText: { color: COLORS.text, fontSize: 18, fontWeight: '600', marginLeft: 10, },

@@ -1,6 +1,5 @@
 // src/types.ts
 
-import { LatLng } from 'react-native-maps'; 
 
 /** Placeholder for Classification Result Structure */
 export interface ClassificationResult {
@@ -18,7 +17,9 @@ export type RootStackParamList = {
   // --- UNAUTHORIZED FLOW ---
   Welcome: undefined; 
   Login: undefined; 
+  ForgotPassword: undefined;
   Register: undefined;
+
   
   // --- AUTHORIZED FLOW ---
   Home: undefined;
