@@ -1,12 +1,12 @@
 // screens/HomeScreen.tsx
 
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
   Platform,
   FlatList,
 } from 'react-native';
@@ -52,12 +52,12 @@ const NavButton: React.FC<NavButtonProps> = ({ IconComponent, label, active, onP
     onPress={onPress}
     style={styles.navButton}
   >
-    <IconComponent 
-      size={24} 
-      color={active ? COLORS.primary : COLORS.onSurfaceVariant} 
+    <IconComponent
+      size={24}
+      color={active ? COLORS.primary : COLORS.onSurfaceVariant}
     />
     <Text style={[
-      styles.navButtonLabel, 
+      styles.navButtonLabel,
       { color: active ? COLORS.primary : COLORS.onSurfaceVariant }
     ]}>
       {label}
@@ -68,8 +68,8 @@ const NavButton: React.FC<NavButtonProps> = ({ IconComponent, label, active, onP
 // --- Main Component ---
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   // Fetch real user and profile data
-  const { user, profile } = useAuth(); 
-  
+  const { user, profile } = useAuth();
+
   // State to control the visual active tab (not functional router state)
   const [activeTab, setActiveTab] = React.useState<ActiveTab>('home');
 
@@ -120,18 +120,18 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   return (
     <View style={styles.fullContainer}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+
         {/* --- Header Section (Gradient Background) --- */}
         <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]} // Gradient from primary to secondary green
-            style={styles.headerContainer}
+          colors={[COLORS.primary, COLORS.secondary]} // Gradient from primary to secondary green
+          style={styles.headerContainer}
         >
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.greeting}>Good Morning 👋</Text>
               <Text style={styles.userName}>{userName}</Text>
             </View>
-            
+
             {/* Profile Button (Top Right) */}
             <TouchableOpacity
               onPress={() => handleNavigation('Profile')}
@@ -152,7 +152,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                   <Text style={styles.pointsValue}>{userPoints}</Text>
                 </View>
               </View>
-              
+
               {/* Redeem Button */}
               <TouchableOpacity
                 style={styles.redeemButton}
@@ -170,7 +170,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           {/* Scan Waste Button (Primary Action) */}
           <TouchableOpacity
             style={styles.scanButton}
-            onPress={() => handleNavigation('Classify')}
+            // 🔥 FIX: Change 'Classify' to 'ScanScreen'
+            onPress={() => handleNavigation('ScanScreen')}
             activeOpacity={0.8}
           >
             <Camera size={24} color={COLORS.white} style={styles.scanButtonIcon} />
@@ -190,7 +191,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               data={mockRecentClassifications}
               keyExtractor={item => item.id}
               renderItem={renderRecentClassification}
-              scrollEnabled={false} 
+              scrollEnabled={false}
               ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
             />
           </View>
@@ -210,8 +211,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
 const styles = StyleSheet.create({
   fullContainer: { flex: 1, backgroundColor: COLORS.background },
-  scrollContent: { paddingBottom: 100 }, 
-  
+  scrollContent: { paddingBottom: 100 },
+
   // --- Header Styles ---
   headerContainer: {
     paddingHorizontal: 20,
@@ -251,10 +252,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   // --- Points Card Styles ---
   pointsCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 15,

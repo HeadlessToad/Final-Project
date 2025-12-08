@@ -19,7 +19,9 @@ import PointsHistoryScreen from "../screens/PointsHistoryScreen";
 import RewardsScreen from "../screens/RewardsScreen";
 import RewardDetailsScreen from "../screens/RewardDetailsScreen";
 import SettingsScreen from "../screens/SettingsScreen";
-
+import ScanScreen from "../screens/ScanScreen"; 
+import ClassificationResultScreen from "../screens/ClassificationResultScreen";
+import RecyclingCentersScreen from "../screens/RecyclingCentersScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -64,6 +66,21 @@ export default function AppNavigator({ user, role }: AppNavigatorProps) {
                             name="RewardDetails" // 🔥 NEW ROUTE
                             component={RewardDetailsScreen} 
                             options={{ headerShown: true, title: "Reward Details" }}
+                        />
+                        <Stack.Screen 
+                            name="ScanScreen" // <-- Must match the string used in handleNavigation
+                            component={ScanScreen} 
+                            options={{ headerShown: false }} 
+                        />
+                        <Stack.Screen 
+                            name="ClassificationResult" 
+                            component={ClassificationResultScreen} 
+                            options={{ headerShown: true, title: "Classification Result" }}
+                        />
+                        <Stack.Screen 
+                            name="RecyclingCenters" 
+                            component={RecyclingCentersScreen} 
+                            options={{ headerShown: true, title: "Recycling Centers" }}
                         />
                         <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: true, title: "Settings" }} />
                     </>

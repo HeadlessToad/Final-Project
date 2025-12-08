@@ -35,6 +35,9 @@ export type RootStackParamList = {
         selectedReward: RewardItem; // Passes the selected reward object
         // NOTE: We don't need updateUserData here, we'll use a hook.
     };
+
+  ScanScreen: undefined; // The camera screen (renamed from Classify for clarity)
+  ClassificationResult: undefined; // The screen that shows the output and points
     
   PointsHistory: undefined;
     

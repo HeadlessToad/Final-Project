@@ -8,13 +8,13 @@ import { useAuth } from '../context/AuthContext';
 import { User, Phone, MapPin, Calendar, Heart, ChevronRight } from 'lucide-react-native'; // Import ChevronRight
 
 const COLORS = {
-    primary: '#4CAF50', 
-    background: '#FFFFFF',
-    text: '#1B5E20', 
-    placeholder: '#9E9E9E',
-    outline: '#E0E0E0',
-    white: '#FFFFFF',
-    primaryLight: '#8BC34A',
+    primary: '#4CAF50',
+    background: '#FFFFFF',
+    text: '#1B5E20',
+    placeholder: '#9E9E9E',
+    outline: '#E0E0E0',
+    white: '#FFFFFF',
+    primaryLight: '#8BC34A',
 };
 
 // 🔥 UPDATED PROP TYPE NAME to match the new route
@@ -47,128 +47,128 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, value, icon: Icon, onPress
 
 
 export default function PersonalDetailsScreen({ navigation }: PersonalDetailsProps) {
-    const { profile } = useAuth();
-    
+    const { profile } = useAuth();
+
     // --- STATE (KEPT FOR DEMO VALUES) ---
-    const [name, setName] = useState(profile?.displayName || 'Your Full Name');
-    const [gender, setGender] = useState('Female'); 
-    const [city, setCity] = useState('San Francisco'); 
-    const [birthDate, setBirthDate] = useState('1995-06-15'); 
-    const [phone, setPhone] = useState('+1 (555) 123-4567'); 
-    // Removed unused loading state for this screen's purpose
+    const [name, setName] = useState(profile?.displayName || 'Your Full Name');
+    const [gender, setGender] = useState('Female');
+    const [city, setCity] = useState('San Francisco');
+    const [birthDate, setBirthDate] = useState('1995-06-15');
+    const [phone, setPhone] = useState('+1 (555) 123-4567');
+    // Removed unused loading state for this screen's purpose
 
-    // ❌ REMOVE handleSaveChanges - It's not the primary function of this display screen
+    // ❌ REMOVE handleSaveChanges - It's not the primary function of this display screen
 
-    const navigateToEdit = (key: 'name' | 'gender' | 'city' | 'birthDate' | 'phone', value: string) => {
-        navigation.navigate('EditSingleField', {
-            fieldKey: key,
-            currentValue: value,
-        });
-    };
+    const navigateToEdit = (key: 'name' | 'gender' | 'city' | 'birthDate' | 'phone', value: string) => {
+        navigation.navigate('EditSingleField', {
+            fieldKey: key,
+            currentValue: value,
+        });
+    };
 
-    return (
-        <View style={styles.fullContainer}>
-            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-                
-                {/* Greeting Message */}
-                <View style={styles.greetingContainer}>
-                    <Text style={styles.greetingTitle}>Hello {name.split(' ')[0]}! 👋</Text>
-                    <Text style={styles.greetingSubtitle}>
-                        We'd like to get to know you better. Click a detail to update it.
-                    </Text>
-                </View>
+    return (
+        <View style={styles.fullContainer}>
+            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-                {/* --- Personal Details (Navigation Rows) --- */}
-                <Text style={styles.sectionTitle}>Personal Details</Text>
-                
-                <View style={styles.detailsGroup}>
-                    
+                {/* Greeting Message */}
+                <View style={styles.greetingContainer}>
+                    <Text style={styles.greetingTitle}>Hello {name.split(' ')[0]}! 👋</Text>
+                    <Text style={styles.greetingSubtitle}>
+                        We'd like to get to know you better. Click a detail to update it.
+                    </Text>
+                </View>
+
+                {/* --- Personal Details (Navigation Rows) --- */}
+                <Text style={styles.sectionTitle}>Personal Details</Text>
+
+                <View style={styles.detailsGroup}>
+
                     {/* Name Row */}
-                    <DetailRow 
-                        label="Name" 
-                        value={name} 
-                        icon={User} 
-                        onPress={() => navigateToEdit('name', name)} 
+                    <DetailRow
+                        label="Name"
+                        value={name}
+                        icon={User}
+                        onPress={() => navigateToEdit('name', name)}
                     />
                     {/* Gender Row */}
-                    <DetailRow 
-                        label="Gender" 
-                        value={gender} 
-                        icon={Heart} 
-                        onPress={() => navigateToEdit('gender', gender)} 
+                    <DetailRow
+                        label="Gender"
+                        value={gender}
+                        icon={Heart}
+                        onPress={() => navigateToEdit('gender', gender)}
                     />
                     {/* City Row */}
-                    <DetailRow 
-                        label="City" 
-                        value={city} 
-                        icon={MapPin} 
-                        onPress={() => navigateToEdit('city', city)} 
+                    <DetailRow
+                        label="City"
+                        value={city}
+                        icon={MapPin}
+                        onPress={() => navigateToEdit('city', city)}
                     />
                     {/* Birth Date Row */}
-                    <DetailRow 
-                        label="Birth Date" 
-                        value={birthDate} 
-                        icon={Calendar} 
-                        onPress={() => navigateToEdit('birthDate', birthDate)} 
+                    <DetailRow
+                        label="Birth Date"
+                        value={birthDate}
+                        icon={Calendar}
+                        onPress={() => navigateToEdit('birthDate', birthDate)}
                     />
                     {/* Phone Row */}
-                    <DetailRow 
-                        label="Phone" 
-                        value={phone} 
-                        icon={Phone} 
-                        onPress={() => navigateToEdit('phone', phone)} 
+                    <DetailRow
+                        label="Phone"
+                        value={phone}
+                        icon={Phone}
+                        onPress={() => navigateToEdit('phone', phone)}
                     />
-                </View>
+                </View>
 
                 {/* ❌ REMOVE SAVE BUTTON - It is only needed on the EditSingleFieldScreen */}
-            </ScrollView>
-        </View>
-    );
+            </ScrollView>
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-    fullContainer: { flex: 1, backgroundColor: COLORS.background },
-    content: { 
-        padding: 20, 
-        paddingBottom: 50, 
-    },
-    
-    // --- Greeting Styles ---
-    greetingContainer: {
-        backgroundColor: COLORS.primaryLight,
-        padding: 15,
-        borderRadius: 10,
-        marginBottom: 30,
-        opacity: 0.9,
-    },
-    greetingTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: COLORS.white,
-        marginBottom: 5,
-    },
-    greetingSubtitle: {
-        fontSize: 14,
-        color: COLORS.white,
-        opacity: 0.8,
-    },
+    fullContainer: { flex: 1, backgroundColor: COLORS.background },
+    content: {
+        padding: 20,
+        paddingBottom: 50,
+    },
 
-    // --- Navigation Row Styles ---
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.text,
-        marginBottom: 15,
-    },
-    detailsGroup: {
-        marginBottom: 30,
-        backgroundColor: COLORS.white, // Ensure rows are on a white background
-        borderRadius: 10,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: COLORS.outline,
-    },
-    
+    // --- Greeting Styles ---
+    greetingContainer: {
+        backgroundColor: COLORS.primaryLight,
+        padding: 15,
+        borderRadius: 10,
+        marginBottom: 30,
+        opacity: 0.9,
+    },
+    greetingTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: COLORS.white,
+        marginBottom: 5,
+    },
+    greetingSubtitle: {
+        fontSize: 14,
+        color: COLORS.white,
+        opacity: 0.8,
+    },
+
+    // --- Navigation Row Styles ---
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.text,
+        marginBottom: 15,
+    },
+    detailsGroup: {
+        marginBottom: 30,
+        backgroundColor: COLORS.white, // Ensure rows are on a white background
+        borderRadius: 10,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: COLORS.outline,
+    },
+
     // --- DetailRow Specific Styles ---
     detailRowContainer: {
         flexDirection: 'row',
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
         gap: 15,
     },
     detailRowIcon: {
-        marginRight: 0, 
+        marginRight: 0,
     },
     detailRowLabel: {
         fontSize: 14,
