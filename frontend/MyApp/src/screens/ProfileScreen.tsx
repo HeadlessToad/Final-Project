@@ -1,17 +1,18 @@
 // screens/ProfileScreen.tsx
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform , Image , } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image, } from 'react-native';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
-import { 
-    User, Coins, ChevronRight, History, TrendingUp, Settings, MessageSquare, 
-    Recycle, LogOut // LogOut for sign-out button
+import {
+    User, Coins, ChevronRight, History, TrendingUp, Settings, MessageSquare,
+    Recycle, LogOut, Home, Gift
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
+import { BottomNavBar } from '../navigation/BottomNavBar';
 
 
 const COLORS = {
@@ -55,10 +56,10 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     const { user, profile } = useAuth();
 
     // Use actual user data or fallbacks
-    const userName = profile?.displayName || user?.email?.split('@')[0] || 'Eco Warrior';
+    const userName = profile?.fullName || user?.email?.split('@')[0] || 'Eco Warrior';
     const userEmail = user?.email || 'N/A';
     const userPoints = profile?.points ?? 0;
-    
+
     // --- Data for Menu Items ---
     const menuItems: MenuItem[] = [
         { icon: <User size={20} color={COLORS.onSurfaceVariant} />, label: 'Personal Details', screen: 'PersonalDetails' as keyof RootStackParamList }, // Using Profile temporarily
@@ -69,7 +70,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     ];
 
     const handleLogout = () => {
-        signOut(auth); 
+        signOut(auth);
         // AppNavigator handles the navigation back to Welcome
     };
 
@@ -84,7 +85,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                         <LogOut size={24} color={COLORS.error} />
                     </TouchableOpacity>
                 </View>
-                
+
                 {/* --- 2. Profile Card --- */}
                 <View style={styles.card}>
                     {/* User Info Section */}
@@ -129,38 +130,32 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                         <Text style={styles.statsNumber}>47</Text>
                         <Text style={styles.statsLabel}>Items Scanned</Text>
                     </View>
-                    <View style={styles.statsCard}>
-                        <Text style={styles.statsIcon}>🌱</Text>
-                        <Text style={styles.statsNumber}>12.5 kg</Text>
-                        <Text style={styles.statsLabel}>CO₂ Saved</Text>
-                    </View>
                 </View>
 
                 {/* --- 4. Menu Items --- */}
                 <View style={[styles.card, styles.menuCard]}>
                     {menuItems.map((item, index) => (
-                        <MenuItemRow 
-                            key={index} 
-                            item={item} 
-                            navigation={navigation} 
+                        <MenuItemRow
+                            key={index}
+                            item={item}
+                            navigation={navigation}
                         />
                     ))}
                 </View>
-                
+
             </ScrollView>
 
             {/* --- Bottom Navigation (Required for persistent tabs) --- */}
-            <View style={styles.bottomNav}>
-                {/* Note: This is usually rendered by a Tab Navigator, but included here for full design reference */}
-                <Text style={styles.navText}>Bottom Navigation (Home, Centers, Rewards, Profile) goes here.</Text>
-            </View>
+            <BottomNavBar currentRoute="Profile" />
+
+
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     fullContainer: { flex: 1, backgroundColor: COLORS.background },
-    content: { padding: 20, paddingBottom: 150 }, 
+    content: { padding: 20, paddingBottom: 150 },
 
     // --- Header & Logout ---
     header: {
@@ -323,22 +318,4 @@ const styles = StyleSheet.create({
         width: 24, // Ensures alignment
         alignItems: 'center',
     },
-    
-    // --- Bottom Navigation Placeholder ---
-    bottomNav: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 80,
-        backgroundColor: COLORS.surfaceVariant,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderTopWidth: 1,
-        borderTopColor: COLORS.outline,
-    },
-    navText: {
-        fontSize: 12,
-        color: COLORS.onSurfaceVariant,
-    }
 });

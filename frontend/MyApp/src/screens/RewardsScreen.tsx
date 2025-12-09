@@ -6,6 +6,8 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
 import { Coins, Gift } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext'; 
+import { BottomNavBar } from '../navigation/BottomNavBar';
+
 // Note: We use 'Rewards' as the screen name in AppNavigator
 
 const { width } = Dimensions.get('window');
@@ -90,6 +92,10 @@ export default function RewardsCatalogScreen({ navigation }: RewardsScreenProps)
                     />
                 )}
             />
+
+            {/* --- Bottom Navigation (Required for persistent tabs) --- */}
+            <BottomNavBar currentRoute="Rewards" />
+
         </View>
     );
 }

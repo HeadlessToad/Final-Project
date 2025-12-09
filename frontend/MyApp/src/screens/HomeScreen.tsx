@@ -15,6 +15,7 @@ import { RootStackParamList } from "../types";
 import { Camera, Coins, Home, Gift, User, Recycle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext'; // To get real user data
+import { BottomNavBar } from '../navigation/BottomNavBar';
 
 // --- THEME COLORS (Derived from your GreenMind design) ---
 const COLORS = {
@@ -198,13 +199,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         </View>
       </ScrollView>
 
-      {/* --- Bottom Navigation --- */}
-      <View style={styles.bottomNav}>
-        <NavButton IconComponent={Home} label="Home" active={activeTab === 'home'} onPress={() => handleTabChange('home')} />
-        <NavButton IconComponent={Recycle} label="Centers" active={activeTab === 'centers'} onPress={() => handleTabChange('centers')} />
-        <NavButton IconComponent={Gift} label="Rewards" active={activeTab === 'rewards'} onPress={() => handleTabChange('rewards')} />
-        <NavButton IconComponent={User} label="Profile" active={activeTab === 'profile'} onPress={() => handleTabChange('profile')} />
-      </View>
+            {/* --- Bottom Navigation (Required for persistent tabs) --- */}
+            <BottomNavBar currentRoute="Home" />
     </View>
   );
 }
@@ -388,33 +384,5 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: 'bold',
     fontSize: 16,
-  },
-
-  // --- Bottom Navigation ---
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.outline,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 5, // Adjust for iOS safe area
-    height: Platform.OS === 'ios' ? 90 : 65,
-    alignItems: 'center',
-  },
-  navButton: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 60,
-    paddingVertical: 5,
-  },
-  navButtonLabel: {
-    fontSize: 12,
-    marginTop: 2,
-    fontWeight: '500',
   },
 });

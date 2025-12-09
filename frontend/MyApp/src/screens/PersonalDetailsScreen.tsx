@@ -1,3 +1,206 @@
+// // screens/PersonalDetailsScreen.tsx
+
+// import React, { useState } from 'react';
+// import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platform, ActivityIndicator, Alert } from 'react-native';
+// import { NativeStackScreenProps } from "@react-navigation/native-stack";
+// import { RootStackParamList } from "../types";
+// import { useAuth } from '../context/AuthContext';
+// import { User, Phone, MapPin, Calendar, Heart, ChevronRight } from 'lucide-react-native'; // Import ChevronRight
+
+// const COLORS = {
+//     primary: '#4CAF50',
+//     background: '#FFFFFF',
+//     text: '#1B5E20',
+//     placeholder: '#9E9E9E',
+//     outline: '#E0E0E0',
+//     white: '#FFFFFF',
+//     primaryLight: '#8BC34A',
+// };
+
+// // 🔥 UPDATED PROP TYPE NAME to match the new route
+// type PersonalDetailsProps = NativeStackScreenProps<RootStackParamList, "PersonalDetails">;
+
+
+// // ❌ REMOVE THE CustomDetailInput COMPONENT - It's for editing, not displaying rows.
+
+
+// // 🔥 NEW: Detail Row Component for Navigation (As used in ProfileScreen)
+// interface DetailRowProps {
+//     label: string;
+//     value: string;
+//     icon: React.ElementType;
+//     onPress: () => void;
+// }
+
+// const DetailRow: React.FC<DetailRowProps> = ({ label, value, icon: Icon, onPress }) => (
+//     <TouchableOpacity style={styles.detailRowContainer} onPress={onPress}>
+//         <View style={styles.detailRowLeft}>
+//             <Icon size={24} color={COLORS.primary} style={styles.detailRowIcon} />
+//             <View>
+//                 <Text style={styles.detailRowLabel}>{label}</Text>
+//                 <Text style={styles.detailRowValue}>{value}</Text>
+//             </View>
+//         </View>
+//         <ChevronRight size={24} color={COLORS.placeholder} />
+//     </TouchableOpacity>
+// );
+
+
+// export default function PersonalDetailsScreen({ navigation }: PersonalDetailsProps) {
+//     const { profile } = useAuth();
+
+//     // --- STATE (KEPT FOR DEMO VALUES) ---
+//     const [name, setName] = useState(profile?.displayName || 'Your Full Name');
+//     const [gender, setGender] = useState('Female');
+//     const [city, setCity] = useState('San Francisco');
+//     const [birthDate, setBirthDate] = useState('1995-06-15');
+//     const [phone, setPhone] = useState('+1 (555) 123-4567');
+//     // Removed unused loading state for this screen's purpose
+
+//     // ❌ REMOVE handleSaveChanges - It's not the primary function of this display screen
+
+//     const navigateToEdit = (key: 'name' | 'gender' | 'city' | 'birthDate' | 'phone', value: string) => {
+//         navigation.navigate('EditSingleField', {
+//             fieldKey: key,
+//             currentValue: value,
+//         });
+//     };
+
+//     return (
+//         <View style={styles.fullContainer}>
+//             <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+
+//                 {/* Greeting Message */}
+//                 <View style={styles.greetingContainer}>
+//                     <Text style={styles.greetingTitle}>Hello {name.split(' ')[0]}! 👋</Text>
+//                     <Text style={styles.greetingSubtitle}>
+//                         We'd like to get to know you better. Click a detail to update it.
+//                     </Text>
+//                 </View>
+
+//                 {/* --- Personal Details (Navigation Rows) --- */}
+//                 <Text style={styles.sectionTitle}>Personal Details</Text>
+
+//                 <View style={styles.detailsGroup}>
+
+//                     {/* Name Row */}
+//                     <DetailRow
+//                         label="Name"
+//                         value={name}
+//                         icon={User}
+//                         onPress={() => navigateToEdit('name', name)}
+//                     />
+//                     {/* Gender Row */}
+//                     <DetailRow
+//                         label="Gender"
+//                         value={gender}
+//                         icon={Heart}
+//                         onPress={() => navigateToEdit('gender', gender)}
+//                     />
+//                     {/* City Row */}
+//                     <DetailRow
+//                         label="City"
+//                         value={city}
+//                         icon={MapPin}
+//                         onPress={() => navigateToEdit('city', city)}
+//                     />
+//                     {/* Birth Date Row */}
+//                     <DetailRow
+//                         label="Birth Date"
+//                         value={birthDate}
+//                         icon={Calendar}
+//                         onPress={() => navigateToEdit('birthDate', birthDate)}
+//                     />
+//                     {/* Phone Row */}
+//                     <DetailRow
+//                         label="Phone"
+//                         value={phone}
+//                         icon={Phone}
+//                         onPress={() => navigateToEdit('phone', phone)}
+//                     />
+//                 </View>
+
+//                 {/* ❌ REMOVE SAVE BUTTON - It is only needed on the EditSingleFieldScreen */}
+//             </ScrollView>
+//         </View>
+//     );
+// }
+
+// const styles = StyleSheet.create({
+//     fullContainer: { flex: 1, backgroundColor: COLORS.background },
+//     content: {
+//         padding: 20,
+//         paddingBottom: 50,
+//     },
+
+//     // --- Greeting Styles ---
+//     greetingContainer: {
+//         backgroundColor: COLORS.primaryLight,
+//         padding: 15,
+//         borderRadius: 10,
+//         marginBottom: 30,
+//         opacity: 0.9,
+//     },
+//     greetingTitle: {
+//         fontSize: 22,
+//         fontWeight: 'bold',
+//         color: COLORS.white,
+//         marginBottom: 5,
+//     },
+//     greetingSubtitle: {
+//         fontSize: 14,
+//         color: COLORS.white,
+//         opacity: 0.8,
+//     },
+
+//     // --- Navigation Row Styles ---
+//     sectionTitle: {
+//         fontSize: 18,
+//         fontWeight: 'bold',
+//         color: COLORS.text,
+//         marginBottom: 15,
+//     },
+//     detailsGroup: {
+//         marginBottom: 30,
+//         backgroundColor: COLORS.white, // Ensure rows are on a white background
+//         borderRadius: 10,
+//         overflow: 'hidden',
+//         borderWidth: 1,
+//         borderColor: COLORS.outline,
+//     },
+
+//     // --- DetailRow Specific Styles ---
+//     detailRowContainer: {
+//         flexDirection: 'row',
+//         justifyContent: 'space-between',
+//         alignItems: 'center',
+//         paddingVertical: 15,
+//         paddingHorizontal: 15,
+//         borderBottomWidth: 1,
+//         borderBottomColor: COLORS.outline,
+//         backgroundColor: COLORS.white,
+//     },
+//     detailRowLeft: {
+//         flexDirection: 'row',
+//         alignItems: 'center',
+//         gap: 15,
+//     },
+//     detailRowIcon: {
+//         marginRight: 0,
+//     },
+//     detailRowLabel: {
+//         fontSize: 14,
+//         color: COLORS.placeholder,
+//         fontWeight: '500',
+//     },
+//     detailRowValue: {
+//         fontSize: 16,
+//         color: COLORS.text,
+//         fontWeight: '600',
+//         marginTop: 2,
+//     },
+// });
+
 // screens/PersonalDetailsScreen.tsx
 
 import React, { useState } from 'react';
@@ -5,7 +208,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platfo
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
 import { useAuth } from '../context/AuthContext';
-import { User, Phone, MapPin, Calendar, Heart, ChevronRight } from 'lucide-react-native'; // Import ChevronRight
+import { User, Phone, MapPin, Calendar, Heart, ChevronRight } from 'lucide-react-native';
 
 const COLORS = {
     primary: '#4CAF50',
@@ -17,14 +220,10 @@ const COLORS = {
     primaryLight: '#8BC34A',
 };
 
-// 🔥 UPDATED PROP TYPE NAME to match the new route
 type PersonalDetailsProps = NativeStackScreenProps<RootStackParamList, "PersonalDetails">;
 
 
-// ❌ REMOVE THE CustomDetailInput COMPONENT - It's for editing, not displaying rows.
-
-
-// 🔥 NEW: Detail Row Component for Navigation (As used in ProfileScreen)
+// --- Detail Row Component for Navigation (Unchanged) ---
 interface DetailRowProps {
     label: string;
     value: string;
@@ -38,7 +237,7 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, value, icon: Icon, onPress
             <Icon size={24} color={COLORS.primary} style={styles.detailRowIcon} />
             <View>
                 <Text style={styles.detailRowLabel}>{label}</Text>
-                <Text style={styles.detailRowValue}>{value}</Text>
+                <Text style={styles.detailRowValue}>{value || 'Not set'}</Text> {/* Use || 'Not set' */}
             </View>
         </View>
         <ChevronRight size={24} color={COLORS.placeholder} />
@@ -47,17 +246,19 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, value, icon: Icon, onPress
 
 
 export default function PersonalDetailsScreen({ navigation }: PersonalDetailsProps) {
+    // 🔥 GET DATA FROM AUTH CONTEXT
     const { profile } = useAuth();
 
-    // --- STATE (KEPT FOR DEMO VALUES) ---
-    const [name, setName] = useState(profile?.displayName || 'Your Full Name');
-    const [gender, setGender] = useState('Female');
-    const [city, setCity] = useState('San Francisco');
-    const [birthDate, setBirthDate] = useState('1995-06-15');
-    const [phone, setPhone] = useState('+1 (555) 123-4567');
-    // Removed unused loading state for this screen's purpose
+    // Fallback for reading data from profile (using profile?.fieldName syntax)
+    const nameValue = profile?.fullName || 'Your Full Name';
+    const genderValue = profile?.gender || 'Not set';
+    const cityValue = profile?.city || 'Not set';
+    const birthDateValue = profile?.birthDate || 'Not set';
+    const phoneValue = profile?.phone || 'Not set';
 
-    // ❌ REMOVE handleSaveChanges - It's not the primary function of this display screen
+    // Helper to format name for greeting
+    const greetingName = nameValue.split(' ')[0];
+
 
     const navigateToEdit = (key: 'name' | 'gender' | 'city' | 'birthDate' | 'phone', value: string) => {
         navigation.navigate('EditSingleField', {
@@ -72,7 +273,7 @@ export default function PersonalDetailsScreen({ navigation }: PersonalDetailsPro
 
                 {/* Greeting Message */}
                 <View style={styles.greetingContainer}>
-                    <Text style={styles.greetingTitle}>Hello {name.split(' ')[0]}! 👋</Text>
+                    <Text style={styles.greetingTitle}>Hello {greetingName}! 👋</Text>
                     <Text style={styles.greetingSubtitle}>
                         We'd like to get to know you better. Click a detail to update it.
                     </Text>
@@ -86,41 +287,39 @@ export default function PersonalDetailsScreen({ navigation }: PersonalDetailsPro
                     {/* Name Row */}
                     <DetailRow
                         label="Name"
-                        value={name}
+                        value={nameValue}
                         icon={User}
-                        onPress={() => navigateToEdit('name', name)}
+                        onPress={() => navigateToEdit('name', nameValue)}
                     />
                     {/* Gender Row */}
                     <DetailRow
                         label="Gender"
-                        value={gender}
+                        value={genderValue}
                         icon={Heart}
-                        onPress={() => navigateToEdit('gender', gender)}
+                        onPress={() => navigateToEdit('gender', genderValue)}
                     />
                     {/* City Row */}
                     <DetailRow
                         label="City"
-                        value={city}
+                        value={cityValue}
                         icon={MapPin}
-                        onPress={() => navigateToEdit('city', city)}
+                        onPress={() => navigateToEdit('city', cityValue)}
                     />
                     {/* Birth Date Row */}
                     <DetailRow
                         label="Birth Date"
-                        value={birthDate}
+                        value={birthDateValue}
                         icon={Calendar}
-                        onPress={() => navigateToEdit('birthDate', birthDate)}
+                        onPress={() => navigateToEdit('birthDate', birthDateValue)}
                     />
                     {/* Phone Row */}
                     <DetailRow
                         label="Phone"
-                        value={phone}
+                        value={phoneValue}
                         icon={Phone}
-                        onPress={() => navigateToEdit('phone', phone)}
+                        onPress={() => navigateToEdit('phone', phoneValue)}
                     />
                 </View>
-
-                {/* ❌ REMOVE SAVE BUTTON - It is only needed on the EditSingleFieldScreen */}
             </ScrollView>
         </View>
     );
@@ -162,7 +361,7 @@ const styles = StyleSheet.create({
     },
     detailsGroup: {
         marginBottom: 30,
-        backgroundColor: COLORS.white, // Ensure rows are on a white background
+        backgroundColor: COLORS.white,
         borderRadius: 10,
         overflow: 'hidden',
         borderWidth: 1,

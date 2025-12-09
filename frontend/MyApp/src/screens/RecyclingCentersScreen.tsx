@@ -1,34 +1,35 @@
 // screens/RecyclingCentersScreen.tsx
 
 import React from 'react';
-import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    ScrollView, 
-    TouchableOpacity, 
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
     Platform,
     Dimensions,
     FlatList
 } from 'react-native';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
-import { MapPin, ChevronRight, Recycle, Home, Gift, User } from 'lucide-react-native'; 
+import { MapPin, ChevronRight, Recycle, Home, Gift, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BottomNavBar } from '../navigation/BottomNavBar';
 
 const { height } = Dimensions.get('window');
 
 const COLORS = {
-    primary: '#4CAF50', 
-    secondary: '#8BC34A', 
+    primary: '#4CAF50',
+    secondary: '#8BC34A',
     background: '#F9F9F9',
     white: '#FFFFFF',
-    text: '#1B5E20', 
-    onSurfaceVariant: '#616161', 
+    text: '#1B5E20',
+    onSurfaceVariant: '#616161',
     outline: '#E0E0E0',
-    mapBackground: '#C8E6C9', 
-    mapPin: '#F44336', 
-    lightPinBg: '#E0F2F1', 
+    mapBackground: '#C8E6C9',
+    mapPin: '#F44336',
+    lightPinBg: '#E0F2F1',
     distanceColor: '#00C853',
 };
 
@@ -52,50 +53,50 @@ type RecyclingCentersProps = NativeStackScreenProps<RootStackParamList, "Recycli
 
 // --- NavButton Component (Reused from Home Screen) ---
 interface NavButtonProps {
-  IconComponent: React.ElementType;
-  label: string;
-  active: boolean;
-  onPress: () => void;
+    IconComponent: React.ElementType;
+    label: string;
+    active: boolean;
+    onPress: () => void;
 }
 
 const NavButton: React.FC<NavButtonProps> = ({ IconComponent, label, active, onPress }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={styles.navButton}
-  >
-    <IconComponent 
-      size={24} 
-      color={active ? COLORS.primary : COLORS.onSurfaceVariant} 
-    />
-    <Text style={[
-      styles.navButtonLabel, 
-      { color: active ? COLORS.primary : COLORS.onSurfaceVariant }
-    ]}>
-      {label}
-    </Text>
-  </TouchableOpacity>
+    <TouchableOpacity
+        onPress={onPress}
+        style={styles.navButton}
+    >
+        <IconComponent
+            size={24}
+            color={active ? COLORS.primary : COLORS.onSurfaceVariant}
+        />
+        <Text style={[
+            styles.navButtonLabel,
+            { color: active ? COLORS.primary : COLORS.onSurfaceVariant }
+        ]}>
+            {label}
+        </Text>
+    </TouchableOpacity>
 );
 
 // --- Center List Item Component ---
 const CenterListItem: React.FC<{ center: Center, navigation: RecyclingCentersProps['navigation'] }> = ({ center, navigation }) => (
-    <TouchableOpacity 
-        style={styles.centerRow} 
-        activeOpacity={0.7}
-        onPress={() => alert(`Navigating to ${center.name}...`)}
-    >
-        <View style={styles.centerIconCircle}>
-            <MapPin size={24} color={COLORS.primary} />
-        </View>
-        <View style={styles.centerDetails}>
-            <Text style={styles.centerName}>{center.name}</Text>
-            <Text style={styles.centerAddress}>{center.address}</Text>
-            <Text style={styles.centerTypes}>{center.wasteTypes.join(' · ')}</Text>
-        </View>
-        <View style={styles.centerDistanceContainer}>
-            <Text style={styles.centerDistance}>{center.distance}</Text>
-            <ChevronRight size={20} color={COLORS.onSurfaceVariant} />
-        </View>
-    </TouchableOpacity>
+    <TouchableOpacity
+        style={styles.centerRow}
+        activeOpacity={0.7}
+        onPress={() => alert(`Navigating to ${center.name}...`)}
+    >
+        <View style={styles.centerIconCircle}>
+            <MapPin size={24} color={COLORS.primary} />
+        </View>
+        <View style={styles.centerDetails}>
+            <Text style={styles.centerName}>{center.name}</Text>
+            <Text style={styles.centerAddress}>{center.address}</Text>
+            <Text style={styles.centerTypes}>{center.wasteTypes.join(' · ')}</Text>
+        </View>
+        <View style={styles.centerDistanceContainer}>
+            <Text style={styles.centerDistance}>{center.distance}</Text>
+            <ChevronRight size={20} color={COLORS.onSurfaceVariant} />
+        </View>
+    </TouchableOpacity>
 );
 
 
@@ -119,7 +120,7 @@ export default function RecyclingCentersScreen({ navigation }: RecyclingCentersP
     return (
         <View style={styles.fullContainer}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                
+
                 {/* --- Map Placeholder Section --- */}
                 <LinearGradient
                     colors={['#C8E6C9', '#B2EBF2']} // Light green to light blue gradient
@@ -132,7 +133,7 @@ export default function RecyclingCentersScreen({ navigation }: RecyclingCentersP
                             <Recycle size={32} color={COLORS.primary} />
                         </View>
                         <Text style={styles.mapText}>Map View</Text>
-                        
+
                         {/* Mock Map Pins (Static elements) */}
                         <View style={[styles.mockPin, { top: 40, left: 80 }]} />
                         <View style={[styles.mockPin, { top: 60, right: 60 }]} />
@@ -154,24 +155,20 @@ export default function RecyclingCentersScreen({ navigation }: RecyclingCentersP
                         scrollEnabled={false}
                     />
                 </View>
-                
+
             </ScrollView>
 
-            {/* --- Bottom Navigation (Manual implementation) --- */}
-            <View style={styles.bottomNav}>
-                <NavButton IconComponent={Home} label="Home" active={activeTab === 'home'} onPress={() => handleTabChange('home')} />
-                <NavButton IconComponent={Recycle} label="Centers" active={activeTab === 'centers'} onPress={() => handleTabChange('centers')} />
-                <NavButton IconComponent={Gift} label="Rewards" active={activeTab === 'rewards'} onPress={() => handleTabChange('rewards')} />
-                <NavButton IconComponent={User} label="Profile" active={activeTab === 'profile'} onPress={() => handleTabChange('profile')} />
-            </View>
+            {/* --- Bottom Navigation (Required for persistent tabs) --- */}
+                     <BottomNavBar currentRoute="RecyclingCenters" />
+
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     fullContainer: { flex: 1, backgroundColor: COLORS.background },
-    scrollContent: { paddingBottom: 100 }, 
-    
+    scrollContent: { paddingBottom: 100 },
+
     // --- Map Placeholder Styles ---
     mapPlaceholder: {
         width: '100%',
@@ -286,33 +283,5 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: COLORS.distanceColor,
-    },
-    
-    // --- Manual Bottom Nav Styles (Copied from Home Screen) ---
-    bottomNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: COLORS.white,
-        borderTopWidth: 1,
-        borderTopColor: COLORS.outline,
-        paddingBottom: Platform.OS === 'ios' ? 30 : 5, // Adjust for iOS safe area
-        height: Platform.OS === 'ios' ? 90 : 65,
-        alignItems: 'center',
-    },
-    navButton: {
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minWidth: 60,
-        paddingVertical: 5,
-    },
-    navButtonLabel: {
-        fontSize: 12,
-        marginTop: 2,
-        fontWeight: '500',
     },
 });
