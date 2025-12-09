@@ -1,61 +1,33 @@
-// screens/WelcomeScreen.tsx
+// screens/WelcomeScreen.tsx (STATIC & SAFE VERSION)
 
-import React, { useEffect } from "react";
+import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { RootStackParamList } from "../types";
 
-// 🔥 RE-IMPLEMENTED ANIMATION IMPORTS: Required for the smooth, floating effect (Worklets)
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  Easing,
-} from 'react-native-reanimated';
+// ❌ REMARK: Removed all 'react-native-reanimated' imports to prevent Worklets Mismatch Error.
+// ❌ REMARK: The elements below will be static, not floating.
 
 
 // --- COLOR PALETTE ---
 const COLORS = {
   lightBackground: '#E8F5E9', // Top background color
   darkerGradient: '#8BC34A', // Secondary green for gradient end/icons
-  primaryGreen: '#4CAF50',  // Primary green for buttons/main circle start
+  primaryGreen: '#4CAF50',  // Primary green for buttons/main circle start
   secondaryGreen: '#1B5E20', // Dark text color
   white: '#FFFFFF',
 };
 
 // --- PROP TYPES ---
 type WelcomeScreenProps = {
-  // Navigation prop uses the main stack list and the current route name 'Welcome'
   navigation: NativeStackNavigationProp<RootStackParamList, "Welcome">;
 };
 
 export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
 
-  // 1. ANIMATION STATE: Defines the current vertical offset (starts at 0)
-  const floatOffset = useSharedValue(0);
-
-  useEffect(() => {
-    // 2. ANIMATION EFFECT: Starts the infinite floating loop on component mount
-    floatOffset.value = withRepeat(
-      // Target Value: Move the element 10 pixels up (-10)
-      withTiming(-10, {
-        duration: 1000, // 1.5 seconds for one cycle (up or down)
-        easing: Easing.inOut(Easing.ease), // Smooth acceleration/deceleration
-      }),
-      -1, // Repeat indefinitely
-      true // Auto-reverse the animation (float up, then float down)
-    );
-  }, []);
-
-  // 3. ANIMATED STYLE: Applies the dynamic vertical movement to the 'transform' property
-  const animatedFloatStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateY: floatOffset.value }], // Moves along the Y-axis
-    };
-  });
+  // ❌ REMARK: Removed animation state (floatOffset) and logic (useEffect, useAnimatedStyle).
 
   // --- NAVIGATION HANDLERS ---
   const handleLoginPress = () => { navigation.navigate("Login"); }; // Navigates to the Login Form
@@ -69,10 +41,11 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
     >
       <View style={styles.iconContainer}>
 
-        {/* 1. ANIMATED LEAF ICON (Floating) */}
-        <Animated.View style={[styles.leafIconWrapper, animatedFloatStyle]}>
+        {/* 1. STATIC LEAF ICON */}
+        {/* ✅ REMARK: Replaced Animated.View with standard View */}
+        <View style={styles.leafIconWrapper}>
           <MaterialCommunityIcons name="leaf" size={36} color={COLORS.darkerGradient} />
-        </Animated.View>
+        </View>
 
         {/* STATIC MAIN RECYCLE CIRCLE */}
         <LinearGradient
@@ -84,15 +57,17 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
           <MaterialCommunityIcons name="recycle" size={80} color={COLORS.white} />
         </LinearGradient>
 
-        {/* 2. ANIMATED SMALL RECYCLE ICON (Floating) */}
-        <Animated.View style={[styles.sideRecycleIconWrapper, animatedFloatStyle]}>
+        {/* 2. STATIC SMALL RECYCLE ICON */}
+        {/* ✅ REMARK: Replaced Animated.View with standard View */}
+        <View style={styles.sideRecycleIconWrapper}>
           <MaterialCommunityIcons name="recycle" size={40} color={COLORS.darkerGradient} />
-        </Animated.View>
+        </View>
 
-        {/* 3. ANIMATED BADGE ICON (Floating) */}
-        <Animated.View style={[styles.badgeIconWrapper, animatedFloatStyle]}>
+        {/* 3. STATIC BADGE ICON */}
+        {/* ✅ REMARK: Replaced Animated.View with standard View */}
+        <View style={styles.badgeIconWrapper}>
           <MaterialCommunityIcons name="medal" size={32} color="#2196F3" />
-        </Animated.View>
+        </View>
 
       </View>
 
@@ -119,7 +94,7 @@ const styles = StyleSheet.create({
   // Main layout: centers content vertically/horizontally at the bottom
   container: { flex: 1, justifyContent: "flex-end", alignItems: "center", padding: 24, },
 
-  // Container for all floating icons/main logo (positioned absolutely near the top)
+  // Container for all icons (positioned absolutely near the top)
   iconContainer: {
     position: 'absolute',
     top: '20%',
@@ -127,7 +102,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
-  // --- Absolute Positioning for Small Animated Icons ---
+  // --- Absolute Positioning for Small Icons ---
   leafIconWrapper: {
     position: 'absolute',
     top: -30,
