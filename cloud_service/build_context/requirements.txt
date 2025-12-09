@@ -5,3 +5,4 @@ pillow
 gunicorn
 firebase-admin
 google-cloud-firestore
+google-cloud-storage

@@ -8,19 +8,21 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  ScrollView,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+import PredictionFeedbackList, { DetectionItem, FeedbackData } from '../components/PredictionFeedbackList';
 
 export default function WasteClassifier() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<any>(null);
-  const [annotatedImageSource, setAnnotatedImageSource] = useState<
-    string | null
-  >(null);
+  const [annotatedImageSource, setAnnotatedImageSource] = useState<string | null>(null);
+  const [currentImageId, setCurrentImageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const [detections, setDetections] = useState<DetectionItem[]>([]);
 
   // 1. Pick Image
   const pickImage = async () => {
@@ -49,7 +51,20 @@ export default function WasteClassifier() {
     }
   };
 
-  // 2. Send to Python Backend
+  const resetForm = () => {
+    setDetections([]);
+    setPrediction(null);
+    setAnnotatedImageSource(null);
+    setImageUri(null);
+  };
+
+  // When running locally for tests - make sure ngrok is running on port 8000
+  // In terminal: ngrok http 8000
+  // const API_BASE_URL = "https://nia-unshattered-davin.ngrok-free.dev";
+
+  //WHen running on Google cloud
+  const API_BASE_URL = "https://waste-classifier-eu-89824582784.europe-west1.run.app";
+
   const classifyImage = async () => {
     if (!imageUri) return;
     setLoading(true);
@@ -72,14 +87,7 @@ export default function WasteClassifier() {
         console.log("👤 No user logged in.");
       }
 
-      // IMPORTANT:
-      // If using Android Emulator, use 'http://10.0.2.2:8000/api/classify'
-      // If using iOS Simulator, use 'http://127.0.0.1:8000/api/classify'
-      // If using a physical device, use your PC's LAN IP (e.g., http://192.168.1.5:8000/api/classify)
-      // const url = "https://nia-unshattered-davin.ngrok-free.dev";
-      const API_BASE_URL = "https://waste-classifier-89824582784.us-central1.run.app";
       const apiUrl = `${API_BASE_URL}/predict`;
-
       const response = await axios.post(apiUrl, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -87,6 +95,14 @@ export default function WasteClassifier() {
       });
 
       const data = response.data;
+
+      if (data.found === false) {
+        Alert.alert("Nothing Found", data.message || "No recyclable objects detected.");
+        setPrediction(null);
+        setDetections([]);
+        setAnnotatedImageSource(null);
+        return; // Stop here, don't try to render anything
+      }
 
       setPrediction(data);
       // --- NEW: Process Annotated Image ---
@@ -100,6 +116,13 @@ export default function WasteClassifier() {
         setAnnotatedImageSource(null);
         console.log("No annotated image received.");
       }
+      if (data.detections) {
+        setDetections(data.detections);
+      }
+      if (data.image_id) {
+        console.log("✅ Received Image ID:", data.image_id);
+        setCurrentImageId(data.image_id);
+      }
     } catch (error) {
       console.error(error);
       Alert.alert("Error", "Could not connect to the ML Backend.");
@@ -108,8 +131,41 @@ export default function WasteClassifier() {
     }
   };
 
+  const handleFeedbackSubmit = async (feedbackItems: FeedbackData[]) => {
+    // 1. Basic validation
+    if (feedbackItems.length === 0) return Alert.alert("Empty", "Please select options before submitting.");
+
+    try {
+      // 2. Send Data
+      const response = await axios.post(`${API_BASE_URL}/feedback`, {
+        user_id: user?.uid || 'anonymous',
+        image_id: currentImageId,
+        feedback: feedbackItems
+      });
+
+      // 3. Get the dynamic message from the backend
+      // It will say "Training data saved" OR "Image discarded (no objects)"
+      const serverMessage = response.data.message || "Your feedback helps improve the model.";
+
+      // 4. Show the specific outcome to the user
+      Alert.alert("Status", serverMessage, [
+        {
+          text: "OK",
+          onPress: () => {
+            // 5. FULL RESET on press (Ready for next item)
+            resetForm();
+          }
+        }
+      ]);
+
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Could not send feedback. Check console.");
+    }
+  };
+
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
       <Text style={styles.title}>♻️ Waste Sorter</Text>
 
       <Button title="Pick an Image" onPress={pickImage} />
@@ -129,18 +185,24 @@ export default function WasteClassifier() {
         </View>
       )}
 
-      {prediction && (
-        <View style={styles.resultContainer}>
-          <Text style={styles.predictionText}>
-            Prediction: {prediction.prediction.toUpperCase()}
-          </Text>
-          <Text style={styles.confidenceText}>
-            Confidence: {(prediction.confidence * 100).toFixed(1)}%
-          </Text>
-          <Text style={styles.tipText}>💡 {prediction.tips}</Text>
-        </View>
+      {prediction && detections.length > 0 && (
+        <>
+          {/* <View style={styles.resultContainer}>
+            <Text style={styles.predictionText}>
+              Prediction: {prediction.prediction.toUpperCase()}
+            </Text>
+            <Text style={styles.confidenceText}>
+              Confidence: {(prediction.confidence * 100).toFixed(1)}%
+            </Text>
+            <Text style={styles.tipText}>💡 {prediction.tips}</Text>
+          </View> */}
+          <PredictionFeedbackList
+            detections={detections}
+            onSubmit={handleFeedbackSubmit}
+          />
+        </>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -148,11 +210,12 @@ const { width, height } = Dimensions.get("window");
 const imageSize = Math.min(width, height) * 0.8;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  scrollContainer: {
+    flexGrow: 1,           // Allows content to fill screen but scroll if needed
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "center", // Keeps it centered if content is short
     padding: 20,
+    paddingBottom: 50,     // Extra padding at bottom so the last button isn't stuck to the edge
   },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
   previewContainer: { marginTop: 20, alignItems: "center" },

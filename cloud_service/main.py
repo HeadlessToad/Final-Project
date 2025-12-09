@@ -1,187 +1,145 @@
-
 import os
-import io
-import json
-import base64
-import datetime
+import sys
 import uuid
-from flask import Flask, request, jsonify
-from PIL import Image
-from ultralytics import YOLO
 import firebase_admin
-from firebase_admin import credentials, firestore, storage
+from flask import Flask, request, jsonify
+from firebase_admin import firestore, credentials, storage
+from datetime import datetime
 
-# --- INIT FIREBASE ---
-# Check if Firebase is already initialized to avoid errors during hot-reloads
+try:
+    from prediction_service import get_classification_result
+except ImportError:
+    print(f"❌ Error importing prediction_service: {e}")
+    get_classification_result = None
+
 if not firebase_admin._apps:
-    # Ensure serviceAccountKey.json is in the same folder as main.py
-    cred = credentials.Certificate('serviceAccountKey.json')
+    cred = credentials.Certificate("serviceAccountKey.json")
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
-
 app = Flask(__name__)
 
-# --- CONFIGURATION ---
-# We assume everything is copied to the working directory in the container
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# In Docker, we will copy 'shared' to ./shared and weights to ./weights
-CLASS_MAP_PATH = os.path.join(BASE_DIR, 'shared', 'class_map.json')
-MODEL_META_PATH = os.path.join(BASE_DIR, 'shared', 'model_meta.json')
-MODEL_WEIGHTS_PATH = os.path.join(BASE_DIR, 'weights', 'best_weights.pt')
+BUCKET_NAME = os.getenv("STORAGE_BUCKET", "retrain_smart_waste_model")
 
-# --- LOAD RESOURCES ---
-try:
-    with open(CLASS_MAP_PATH, 'r') as f:
-        CLASS_DATA = json.load(f)
-        LABELS = {int(k): v for k, v in CLASS_DATA['index_to_name'].items()}
-except Exception as e:
-    print(f"Error loading class map: {e}")
-    LABELS = {}
-
-try:
-    with open(MODEL_META_PATH, 'r') as f:
-        MODEL_META = json.load(f)
-        MODEL_VERSION = MODEL_META.get("version", "v1-yolo-cloud")
-        CONF_THRESHOLD = 0.25
-except Exception as e:
-    print(f"Error loading model meta: {e}")
-    MODEL_VERSION = "v1-yolo-cloud"
-    CONF_THRESHOLD = 0.25
-
-TIPS_MAP = {
-    "BIODEGRADABLE": "Place in a compost bin or designated organics waste container.",
-    "CARDBOARD": "Break down boxes flat before recycling.",
-    "GLASS": "Empty, rinse, and place in the glass bin. Labels are okay.",
-    "METAL": "Ensure cans are clean and dry. No sharp scrap metal.",
-    "PAPER": "Keep dry and flatten before placing in the paper bin.",
-    "PLASTIC": "Empty and rinse container. If it's a bottle/jug, put the cap back on."
-}
-
-# --- LOAD MODEL ---
-MODEL = None
-if os.path.exists(MODEL_WEIGHTS_PATH):
+@app.route('/feedback', methods=['POST'])
+def save_feedback():
     try:
-        MODEL = YOLO(MODEL_WEIGHTS_PATH)
-        print(f"✅ Cloud Model ({MODEL_VERSION}) loaded successfully.")
+        data = request.json
+        # Payload expected: { "image_id": "...", "feedback_items": [...] }
+        
+        image_id = data.get('image_id')
+        feedback_items = data.get('feedback', [])
+
+        if not image_id:
+            return jsonify({"error": "Missing image_id"}), 400
+        print(f"🔍 RECEIVED FEEDBACK: {feedback_items}")
+
+        # --- GENERATE YOLO LABEL FILE CONTENT ---
+        # Format: <class_index> <x_center> <y_center> <width> <height>
+        label_lines = []
+        
+        # --- LOAD CLASS MAP ---
+        try:
+             # In Docker (Cloud Run), 'shared' is copied to the same directory as main.py
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            class_map_path = os.path.join(base_dir, 'shared', 'class_map.json')
+            
+            import json
+            with open(class_map_path, 'r') as f:
+                class_data = json.load(f)
+            
+            # Helper to get ID from label
+            name_to_index = class_data.get('name_to_index', {})
+        except Exception as e:
+            print(f"⚠️ Could not load class_map.json: {e}")
+            name_to_index = {}
+
+        for item in feedback_items:
+            # We only want to save "True" detections or "Corrected" ones
+            status = item.get('status')
+            box = item.get('box_2d') # [x, y, w, h]
+            
+            final_label = item.get('originalLabel')
+            
+            if status == 'ghost':
+                continue # Skip "Bad Box" - don't train on this
+            elif status == 'wrong_label':
+                final_label = item.get('correctedLabel')
+            
+            if box and final_label in name_to_index:
+                # Convert label to integer ID
+                class_id = name_to_index[final_label]
+                # Append line: "CLASS_ID x y w h"
+                line = f"{class_id} {box[0]} {box[1]} {box[2]} {box[3]}"
+                label_lines.append(line)
+            else:
+                print(f"⚠️ Label '{final_label}' not found in class map or no box provided.")
+
+        label_content = "\n".join(label_lines)
+
+        # --- UPLOAD LABEL FILE TO STORAGE ---
+        # Same filename as image, but .txt extension
+        label_path = f"training_data/labels/{image_id}.txt"
+        bucket = storage.bucket(BUCKET_NAME)
+        label_blob = bucket.blob(label_path)
+        label_blob.upload_from_string(label_content, content_type='text/plain')
+
+        # --- SAVE METADATA TO FIRESTORE ---
+        # We update the 'feedback' collection to link everything
+        db.collection('feedback').add({
+            "image_id": image_id,
+            "image_path": f"training_data/images/{image_id}.jpg",
+            "label_path": label_path,
+            "created_at": datetime.utcnow(),
+            "raw_feedback": feedback_items
+        })
+        
+        return jsonify({"success": True, "message": "Training data saved"}), 200
+
     except Exception as e:
-        print(f"❌ Error loading YOLO model: {e}")
-else:
-    print(f"❌ Model weights not found at {MODEL_WEIGHTS_PATH}")
+        print(f"❌ Feedback Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({"status": "healthy", "service": "Cloud Waste Classifier", "model": MODEL_VERSION})
-
-def save_prediction_to_db(user_id, label, confidence, image_url=None):
-    """
-    Saves the prediction to:
-    1. The user's personal sub-collection: users/{uid}/scans
-    2. A global shared collection: scans/
-    """
-    scan_data = {
-        "label": label,
-        "confidence": float(confidence), # Convert numpy float to python float
-        "timestamp": datetime.datetime.now(),
-        "model_version": MODEL_VERSION,
-        # Optional: if you upload the image to storage, save the URL here
-        "image_url": image_url if image_url else "N/A" 
-    }
-
-    try:
-        # Save to User's Personal History
-        # Path: users -> [USER_ID] -> scans -> [AUTO_GENERATED_ID]
-        user_ref = db.collection("users").document(user_id).collection("scans")
-        user_ref.add(scan_data)
-        
-        print(f"✅ Successfully saved scan for user {user_id}")
-        return True
-    except Exception as e:
-        print(f"❌ Error saving to Firestore: {e}")
-        return False
-    # Save to Global Scans Collection (for 'Recent Activity' feed)
-    # Path: scans -> [AUTO_GENERATED_ID]
-    db.collection("scans").add(scan_data)
+    return jsonify({"status": "active", "mode": "local_inference"}), 200
 
 @app.route('/predict', methods=['POST'])
-def predict():
-    if not MODEL:
-        return jsonify({"error": "Model not running"}), 503
-
+def predict_route():
     if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return jsonify({"error": "No file uploaded"}), 400
+        
+    if get_classification_result is None:
+        return jsonify({"error": "Prediction service not available"}), 500
 
     file = request.files['file']
     try:
-        # Read and open image
+        # 1. Read image bytes
         image_bytes = file.read()
-        img = Image.open(io.BytesIO(image_bytes))
-
-        # Run Inference
-        results = MODEL.predict(img, conf=CONF_THRESHOLD, save=False, verbose=False)
-        r = results[0]
-
-        # --- RETRAINING LOGIC ---
-        user_id = request.form.get('user_id') or request.json.get('user_id')
-        if not user_id:
-            user_id = "unidentified"
-
-        # Draw boxes and get image as base64
-        # Plot method returns a numpy array (BGR)
-        im_array = r.plot()  
-        im = Image.fromarray(im_array[..., ::-1])  # RGB
         
-        buffered = io.BytesIO()
-        im.save(buffered, format="JPEG")
-        encoded_image_string = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        # 2. Upload Image to Firebase Storage
+        # We give it a unique ID so we can find it later
+        image_id = str(uuid.uuid4())
+        blob_path = f"training_data/images/{image_id}.jpg"
+        
+        bucket = storage.bucket(BUCKET_NAME)
+        blob = bucket.blob(blob_path)
+        blob.upload_from_string(image_bytes, content_type='image/jpeg')
+        
+        # 3. Run Inference (Pass bytes we already read)
+        result = get_classification_result(image_bytes)
 
-        if len(r.boxes) == 0:
-            return jsonify({
-                "prediction": "unidentified",
-                "confidence": 0.0,
-                "topk": [],
-                "tips": "Could not identify the item.",
-                "model_version": MODEL_VERSION,
-                "annotated_image_base64": None
-            })
-
-        # Process detections
-        top_k_map = {}
-        for box in r.boxes:
-            class_id = int(box.cls[0].item())
-            confidence = float(box.conf[0].item())
-            class_name = LABELS.get(class_id, "unknown")
-            if class_name not in top_k_map or confidence > top_k_map[class_name]:
-                top_k_map[class_name] = confidence
-
-        top_k_list = sorted(
-            [[name, round(score, 3)] for name, score in top_k_map.items()],
-            key=lambda x: x[1],
-            reverse=True
-        )
-
-        top_name = top_k_list[0][0]
-        top_conf = top_k_list[0][1]
-        tips = TIPS_MAP.get(top_name, "")
-
-        # Save prediction to database
-        save_prediction_to_db(user_id, top_name, top_conf)
-
-        return jsonify({
-            "prediction": top_name,
-            "confidence": top_conf,
-            "topk": top_k_list,
-            "tips": tips,
-            "model_version": MODEL_VERSION,
-            "annotated_image_base64": encoded_image_string
-        })
-
+        # 4. Attach the ID and Path to the response so Frontend has it
+        result['image_id'] = image_id
+        result['storage_path'] = blob_path
+        
+        return jsonify(result)
+        
     except Exception as e:
-        print(f"Prediction error: {e}")
+        print(f"❌ Prediction Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-if __name__ == "__main__":
-    # Cloud Run expects the app to listen on PORT environment variable
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+if __name__ == '__main__':
+    # Use port 8000 to match frontend configuration
+    app.run(host='0.0.0.0', port=8000, debug=True)

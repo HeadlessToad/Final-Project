@@ -7,19 +7,17 @@ from ultralytics import YOLO
 from typing import Dict, Any, List
 
 # --- 1. CONFIGURATION LOADING ---
-# Base directory is 'ml/'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Paths to shared configuration
 CLASS_MAP_PATH = os.path.join(BASE_DIR, 'shared', 'class_map.json')
 MODEL_META_PATH = os.path.join(BASE_DIR, 'shared', 'model_meta.json')
 MODEL_WEIGHTS_PATH = os.path.join(
-    BASE_DIR, 'weights', 'best.pt')  # Your weights file
+    BASE_DIR, 'weights', 'best.pt')  # Ensure this path matches your container structure
 
 try:
     with open(CLASS_MAP_PATH, 'r') as f:
         CLASS_DATA = json.load(f)
-        # Convert keys to integers for easy lookup: {0: "glass", 1: "paper"...}
         LABELS = {int(k): v for k, v in CLASS_DATA['index_to_name'].items()}
 except FileNotFoundError:
     print(f"❌ Error: Class map not found at {CLASS_MAP_PATH}")
@@ -29,13 +27,12 @@ try:
     with open(MODEL_META_PATH, 'r') as f:
         MODEL_META = json.load(f)
         MODEL_VERSION = MODEL_META.get("version", "v2s-yolo-default")
-        CONF_THRESHOLD = 0.25  # Standard confidence threshold for detection
+        CONF_THRESHOLD = 0.25
 except FileNotFoundError:
     print(f"❌ Error: Model meta not found at {MODEL_META_PATH}")
     MODEL_VERSION = "v2s-yolo-default"
     CONF_THRESHOLD = 0.25
 
-# Simple tips mapping for the API response
 TIPS_MAP = {
     "BIODEGRADABLE": "Place in a compost bin or designated organics waste container.",
     "CARDBOARD": "Break down boxes flat before recycling.",
@@ -72,24 +69,24 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
     img = Image.open(io.BytesIO(image_bytes))
 
     # Run Inference
-    results = MODEL.predict(img, conf=CONF_THRESHOLD, save=True,
-                            project='temp_runs', name='web_predict', verbose=False)
+    # CHANGED: Removed 'project' and 'name' arguments. 'save=False' prevents disk writing.
+    results = MODEL.predict(img, conf=CONF_THRESHOLD, save=False, verbose=False)
 
     # Process the result for the first image
     r = results[0]
 
-    # The save location is typically the 'runs/detect/project/name' folder
-    # We use the path property of the result object
-    annotated_image_path = r.save_dir + '/' + os.path.basename(r.path)
-
-    # --- NEW: Encode the annotated image to Base64 ---
-    try:
-        with open(annotated_image_path, "rb") as image_file:
-            encoded_image_string = base64.b64encode(
-                image_file.read()).decode('utf-8')
-    except Exception as e:
-        print(f"Error encoding annotated image: {e}")
-        encoded_image_string = None
+    # --- NEW: Generate Annotated Image in Memory ---
+    # r.plot() returns a numpy array in BGR format
+    im_array = r.plot()
+    
+    # Convert BGR (OpenCV format) to RGB (PIL format)
+    im = Image.fromarray(im_array[..., ::-1])
+    
+    # Save to memory buffer instead of disk
+    buffered = io.BytesIO()
+    im.save(buffered, format="JPEG")
+    encoded_image_string = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    # -----------------------------------------------
 
     if len(r.boxes) == 0:
         return {
@@ -110,9 +107,10 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
         confidence = float(box.conf[0].item())
         class_name = LABELS.get(class_id, "unknown")
         
-        # This is required for YOLO training format
-        xywhn = box.xywhn[0].tolist() # Returns [x, y, w, h] normalized 0-1
-        print("xywhn", xywhn)
+        # Returns [x, y, w, h] normalized 0-1
+        xywhn = box.xywhn[0].tolist() 
+        # print("xywhn", xywhn) # Optional debug print
+        
         detections.append({
             "id": f"box_{i}",
             "label": class_name,
@@ -120,22 +118,18 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
             "box_2d": xywhn
         })
 
-        # We assume the highest confidence for a class is its score
         if class_name not in top_k_map or confidence > top_k_map[class_name]:
             top_k_map[class_name] = confidence
 
-    # Convert map to a list of [name, score] pairs and sort by score (descending)
     top_k_list: List[List[Any]] = sorted(
         [[name, round(score, 3)] for name, score in top_k_map.items()],
         key=lambda x: x[1],
         reverse=True
     )
 
-    # Determine Top-1 Prediction (highest confidence score overall)
     top_prediction_name = top_k_list[0][0]
     top_prediction_confidence = top_k_list[0][1]
 
-    # Build the Final Response
     tips = TIPS_MAP.get(
         top_prediction_name, "Sorting instructions not found. Check local guidelines.")
 
@@ -145,6 +139,6 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
         "topk": top_k_list,
         "tips": tips,
         "model_version": MODEL_VERSION,
-        "annotated_image_base64": encoded_image_string,
+        "annotated_image_base64": encoded_image_string, # Now this variable is defined
         "detections": detections
     }

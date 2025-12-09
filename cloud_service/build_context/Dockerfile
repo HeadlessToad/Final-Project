@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY serviceAccountKey.json .
 COPY main.py .
 COPY shared ./shared
+COPY prediction_service.py .
 COPY weights ./weights
 EXPOSE 8080
 CMD ["python", "main.py"]

@@ -14,7 +14,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLASS_MAP_PATH = os.path.join(BASE_DIR, '..', 'shared', 'class_map.json')
 MODEL_META_PATH = os.path.join(BASE_DIR, '..', 'shared', 'model_meta.json')
 MODEL_WEIGHTS_PATH = os.path.join(
-    BASE_DIR, 'train_kaggle_stable_2', 'weights', 'best.pt')  # Your weights file
+    BASE_DIR, 'train_kaggle_stable', 'weights', 'best.pt')  # Your weights file
 
 try:
     with open(CLASS_MAP_PATH, 'r') as f:
@@ -72,7 +72,7 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
     img = Image.open(io.BytesIO(image_bytes))
 
     # Run Inference
-    results = MODEL.predict(img, conf=CONF_THRESHOLD, save=True,
+    results = MODEL.predict(img, conf=CONF_THRESHOLD, save=False,
                             project='temp_runs', name='web_predict', verbose=False)
 
     # Process the result for the first image
@@ -103,11 +103,22 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
 
     # Process all Detections for Top-K
     top_k_map = {}
+    detections = []
 
-    for box in r.boxes:
+    for i, box in enumerate(r.boxes):
         class_id = int(box.cls[0].item())
         confidence = float(box.conf[0].item())
         class_name = LABELS.get(class_id, "unknown")
+        
+        # This is required for YOLO training format
+        xywhn = box.xywhn[0].tolist() # Returns [x, y, w, h] normalized 0-1
+        print("xywhn", xywhn)
+        detections.append({
+            "id": f"box_{i}",
+            "label": class_name,
+            "confidence": round(confidence, 3),
+            "box_2d": xywhn
+        })
 
         # We assume the highest confidence for a class is its score
         if class_name not in top_k_map or confidence > top_k_map[class_name]:
@@ -135,4 +146,5 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
         "tips": tips,
         "model_version": MODEL_VERSION,
         "annotated_image_base64": encoded_image_string,
+        "detections": detections
     }
