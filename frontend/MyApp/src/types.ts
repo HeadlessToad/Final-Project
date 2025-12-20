@@ -5,12 +5,47 @@
 // =======================================================
 
 /**
- * Defines the static structure of a classified waste item result.
+ * Defines the static structure of a classified waste item result (Basic/Generic).
  */
 export interface ClassificationResult {
   prediction: string; // e.g., 'Plastic Bottle'
   confidence: number; // e.g., 0.98 (Confidence score 0.0 to 1.0)
   instructions: string; // Recycling instructions specific to the material
+}
+
+/**
+ * Defines the static structure for a single object detected in an image.
+ */
+export interface DetectionItem {
+  id: string;
+  label: string;
+  confidence: number;
+  box_2d: number[]; // [x, y, w, h] normalized coordinates
+}
+
+/**
+ * Defines the comprehensive response structure received from the ML backend.
+ */
+export interface PredictionResponse {
+  prediction: string; // The primary classified material name
+  confidence: number; // Confidence for the primary prediction
+  tips: string; // Additional tips/instructions from the ML service
+  image_id: string;      // ID assigned by backend for feedback tracking
+  storage_path: string;  // Cloud Storage path where the original image is saved
+  annotated_image_base64?: string; // Optional: The image with bounding boxes drawn
+  detections: DetectionItem[];     // List of all objects found
+  found: boolean; // Flag indicating if a recognizable object was found
+}
+
+/**
+ * Defines the data structure used when sending user feedback to the backend.
+ */
+export interface FeedbackData {
+  detectionId: string;
+  originalLabel: string;
+  status: 'correct' | 'wrong_label' | 'ghost'; // Type of feedback
+  correctedLabel?: string; // New label if 'wrong_label'
+  box_2d?: number[]; // Bounding box data if user adjusted it
 }
 
 /**
@@ -24,8 +59,7 @@ export interface RewardItem {
   description: string;
 }
 
-// REMARK: Add the UserProfile interface here when finalized in AuthContext.
-// For now, we will assume the data structure used by the navigation parameters is sufficient.
+// REMARK: UserProfile interface defined in AuthContext.tsx for type safety.
 
 
 // =======================================================
@@ -37,43 +71,42 @@ export interface RewardItem {
  */
 export type RootStackParamList = {
   // --- UNAUTHORIZED FLOW ---
-  // REMARK: Screens accessible before a user logs in.
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
 
   // --- AUTHORIZED FLOW (MAIN TABS) ---
-  // REMARK: Top-level screens in the authenticated app area.
   Home: undefined;
   Profile: undefined;
   Rewards: undefined;
   RecyclingCenters: undefined; // Map view for nearby centers
-  ScanScreen: undefined; // The camera screen (for classification)
 
   // --- CLASSIFICATION & SCAN FLOW ---
-  // REMARK: Routes related to scanning and results.
-  ClassificationResult: undefined; // The screen that shows the output and points
-  // ClassificationResults is DEPRECATED/REMOVED to avoid conflicts with ClassificationResult
-  // It is safer to pass complex data via a simpler route name if possible.
+  ScanScreen: undefined; // The camera screen (renamed from Classify for clarity)
+
+  // 🔥 UPDATED: Now passes the comprehensive PredictionResponse object and local image URI
+  ClassificationResult: {
+    resultData: PredictionResponse;
+    imageUri: string; // Local path to the original photo
+  };
+
+  // ClassificationResults is DEPRECATED/REMOVED to avoid conflicts
 
   // --- PROFILE & ACCOUNT MANAGEMENT ---
-  // REMARK: Routes accessible from the Profile screen.
   PersonalDetails: undefined; // Displays editable details
   ClassificationHistory: undefined; // View all past scans
   PointsHistory: undefined; // View transactions
 
   // --- EDITING & DETAIL ROUTES ---
-  // COMMAND: Use this generic route to edit single profile fields.
   EditSingleField: {
     // 🔥 fieldKey must match the key in your UserProfile/Firestore document
     fieldKey: 'fullName' | 'gender' | 'city' | 'birthDate' | 'phone';
     currentValue: string;
-    // REMARK: We removed 'name' and use 'fullName' for clarity based on profile structure
+    // REMARK: We use 'fullName' for clarity based on profile structure
   };
   RewardDetails: {
-    // COMMAND: Passes the reward object to the detail screen
-    selectedReward: RewardItem;
+    selectedReward: RewardItem; // Passes the reward object to the detail screen
   };
 
   // REMARK: Add any additional fixed-title utility screens here.

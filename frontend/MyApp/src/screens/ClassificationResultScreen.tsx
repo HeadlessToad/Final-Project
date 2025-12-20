@@ -1,134 +1,168 @@
 // screens/ClassificationResultScreen.tsx
 
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, DimensionValue } from 'react-native';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../types";
-import { Camera, MapPin, Save, CheckCircle, ArrowLeft } from 'lucide-react-native'; 
+import { RootStackParamList, FeedbackData } from "../types";
+import { Camera, MapPin, Save, CheckCircle, ArrowLeft } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import PredictionFeedbackList from '../components/PredictionFeedbackList';
+import { getAuth } from "firebase/auth";
 
 const COLORS = {
-    primary: '#4CAF50', 
-    secondary: '#8BC34A', 
+    primary: '#4CAF50',
+    secondary: '#8BC34A',
     background: '#F9F9F9',
     white: '#FFFFFF',
-    text: '#1B5E20', 
-    onSurfaceVariant: '#616161', 
+    text: '#1B5E20',
+    onSurfaceVariant: '#616161',
     outline: '#E0E0E0',
     primaryLight: '#E8F5E9',
 };
 
+// Map backend labels to UI details
+const getCategoryDetails = (predictedLabel: string) => {
+    const label = predictedLabel ? predictedLabel.toUpperCase() : "UNKNOWN";
+
+    if (label.includes('PLASTIC')) return { category: 'Recyclable Plastic', icon: '🧴', points: 15 };
+    if (label.includes('METAL')) return { category: 'Metal', icon: '🥫', points: 20 };
+    if (label.includes('PAPER')) return { category: 'Paper', icon: '📄', points: 10 };
+    if (label.includes('CARDBOARD')) return { category: 'Cardboard', icon: '📦', points: 10 };
+    if (label.includes('GLASS')) return { category: 'Glass', icon: '🍾', points: 25 };
+    if (label.includes('BIODEGRADABLE')) return { category: 'Biodegradable', icon: '🍂', points: 10 };
+
+    return { category: 'General Waste', icon: '🗑️', points: 5 };
+};
+
 type ClassificationResultProps = NativeStackScreenProps<RootStackParamList, "ClassificationResult">;
 
-export default function ClassificationResultScreen({ navigation }: ClassificationResultProps) {
-    // --- MOCK DATA ---
-    const result = {
-        type: 'Plastic Bottle (PET)',
-        confidence: 94,
-        points: 15,
-        category: 'Recyclable Plastic',
-        icon: '🧴', // Using emoji for large icon display
+export default function ClassificationResultScreen({ navigation, route }: ClassificationResultProps) {
+    const { resultData, imageUri } = route.params;
+    const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+    // 1. Determine which image to show (Annotated from Server OR Local Original)
+    // If backend sent a base64 string, use it! It shows the bounding boxes.
+    const displayImage = resultData.annotated_image_base64
+        ? `data:image/jpeg;base64,${resultData.annotated_image_base64}`
+        : imageUri;
+
+    // 2. Prepare Display Data
+    const categoryInfo = getCategoryDetails(resultData.prediction);
+    const confidencePct = Math.round(resultData.confidence * 100);
+
+    // 3. Handle Feedback Submission
+    const handleFeedbackSubmit = async (feedbackItems: FeedbackData[]) => {
+        if (!resultData.image_id) {
+            Alert.alert("Error", "No Image ID found. Cannot save feedback.");
+            return;
+        }
+
+        setIsSubmittingFeedback(true);
+        const API_URL = "https://waste-classifier-eu-89824582784.europe-west1.run.app"; // Or your local IP
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) {
+            Alert.alert("Error", "No user found. Cannot save feedback.");
+            setIsSubmittingFeedback(false);
+            return;
+        }
+        try {
+            const response = await fetch(`${API_URL}/feedback`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image_id: resultData.image_id,
+                    feedback: feedbackItems,
+                    user_id: user.uid
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) throw new Error(data.error || "Failed to save feedback");
+
+            Alert.alert(
+                "Feedback Saved!",
+                `You earned +${data.points_added} points for helping us train the AI!`,
+                [{ text: "Awesome", onPress: () => navigation.popToTop() }]
+            );
+
+        } catch (error) {
+            Alert.alert("Error", "Could not save feedback. Try again.");
+            console.error(error);
+        } finally {
+            setIsSubmittingFeedback(false);
+        }
     };
-    const instructions = [
-        'Remove the cap and rinse the bottle',
-        'Crush the bottle to save space',
-        'Place in the plastic recycling bin',
-        'Caps can be recycled separately'
-    ];
-    // --- END MOCK DATA ---
-
-
-    // 🔥 NEW/FIXED LOGIC: Function to force navigation back to the Home dashboard
-    const handleGoHome = () => { 
-        // Use popToTop to clear the stack (ScanScreen, ResultScreen) and go back to the root (Home)
-        navigation.popToTop(); 
-    };
-
-    const handleScanAgain = () => { navigation.navigate('ScanScreen'); };
-    const handleFindCenter = () => { navigation.navigate('RecyclingCenters'); }; // Placeholder route
-    const handleSaveResult = () => { alert('Result saved to history!'); };
-    
-
-
-    // 🔥 NAVIGATION FIX: Override the default back button to ensure it goes to Home, 
-    // skipping the crashing ScanScreen.
-    React.useLayoutEffect(() => {
-        navigation.setOptions({
-            headerLeft: () => (
-                <TouchableOpacity onPress={handleGoHome} style={{ padding: 10 }}>
-                    <ArrowLeft size={24} color={COLORS.text} />
-                </TouchableOpacity>
-            ),
-            // Optionally, you can set the back title to null to hide the previous screen name
-            // headerBackTitleVisible: false, 
-        });
-    }, [navigation]);
-
 
     return (
         <View style={styles.fullContainer}>
+            {/* Header */}
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.popToTop()} style={styles.backButton}>
+                    <ArrowLeft size={24} color={COLORS.text} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Analysis Result</Text>
+            </View>
+
             <ScrollView contentContainerStyle={styles.content}>
-                
-                {/* --- 1. Result Card --- */}
+
+                {/* 1. Image Display */}
+                <View style={styles.imageContainer}>
+                    <Image source={{ uri: displayImage }} style={styles.resultImage} resizeMode="contain" />
+                </View>
+
+                {/* 2. Main Result Card */}
                 <View style={styles.resultCard}>
-                    <Text style={styles.resultIcon}>{result.icon}</Text>
-                    <Text style={styles.resultType}>{result.type}</Text>
-                    <Text style={styles.resultCategory}>{result.category}</Text>
+                    <Text style={styles.resultIcon}>{categoryInfo.icon}</Text>
+                    <Text style={styles.resultType}>{resultData.prediction}</Text>
+                    <Text style={styles.resultCategory}>{categoryInfo.category}</Text>
 
                     {/* Confidence Meter */}
                     <View style={styles.confidenceMeterContainer}>
                         <View style={styles.confidenceHeader}>
                             <Text style={styles.confidenceLabel}>Confidence</Text>
-                            <Text style={[styles.confidenceValue, {color: COLORS.primary}]}>{result.confidence}%</Text>
+                            <Text style={[styles.confidenceValue, { color: COLORS.primary }]}>{confidencePct}%</Text>
                         </View>
                         <View style={styles.progressBarBackground}>
                             <LinearGradient
                                 colors={[COLORS.primary, COLORS.secondary]}
                                 start={{ x: 0, y: 0.5 }}
                                 end={{ x: 1, y: 0.5 }}
-                                style={[styles.progressBarFill, { width: `${result.confidence}%` }]}
+                                style={[styles.progressBarFill, { width: `${confidencePct}%` as DimensionValue }]}
                             />
                         </View>
                     </View>
 
-                    {/* Points Earned */}
+                    {/* Points */}
                     <View style={styles.pointsEarnedBox}>
                         <CheckCircle size={24} color={COLORS.primary} />
-                        <View>
-                            <Text style={styles.pointsEarnedLabel}>Points Earned</Text>
-                            <Text style={[styles.pointsEarnedValue, {color: COLORS.primary}]}>+{result.points}</Text>
-                        </View>
+                        <Text style={styles.pointsEarnedLabel}>Points Earned</Text>
+                        <Text style={[styles.pointsEarnedValue, { color: COLORS.primary }]}>+{categoryInfo.points}</Text>
                     </View>
                 </View>
 
-                {/* --- 2. Recycling Instructions --- */}
+                {/* 3. Tips */}
                 <View style={styles.instructionsCard}>
-                    <Text style={styles.instructionsTitle}>Recycling Instructions</Text>
-                    {instructions.map((instruction, index) => (
-                        <View key={index} style={styles.instructionRow}>
-                            <View style={styles.instructionNumberCircle}>
-                                <Text style={styles.instructionNumber}>{index + 1}</Text>
-                            </View>
-                            <Text style={styles.instructionText}>{instruction}</Text>
-                        </View>
-                    ))}
+                    <Text style={styles.instructionsTitle}>💡 Recycling Tip</Text>
+                    <Text style={styles.instructionText}>
+                        {resultData.tips || "Check your local recycling guidelines."}
+                    </Text>
                 </View>
 
-                {/* --- 3. Actions --- */}
+                {/* 4. Feedback Section (The new List Component) */}
+                <PredictionFeedbackList
+                    detections={resultData.detections}
+                    onSubmit={handleFeedbackSubmit}
+                />
+
+                {isSubmittingFeedback && <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 10 }} />}
+
+                {/* 5. Bottom Actions */}
                 <View style={styles.actionsContainer}>
-                    <TouchableOpacity style={styles.primaryButton} onPress={handleScanAgain}>
-                        <Camera size={20} color={COLORS.white} />
-                        <Text style={styles.primaryButtonText}>Scan Again</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity style={styles.outlineButton} onPress={handleFindCenter}>
-                        <MapPin size={20} color={COLORS.primary} />
-                        <Text style={styles.outlineButtonText}>Find Recycling Center</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity style={styles.textButton} onPress={handleSaveResult}>
-                        <Save size={20} color={COLORS.onSurfaceVariant} />
-                        <Text style={styles.textButtonText}>Save Result</Text>
+                    <TouchableOpacity style={styles.outlineButton} onPress={() => navigation.navigate('ScanScreen')}>
+                        <Camera size={20} color={COLORS.primary} />
+                        <Text style={styles.outlineButtonText}>Scan Again</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -139,34 +173,46 @@ export default function ClassificationResultScreen({ navigation }: Classificatio
 
 const styles = StyleSheet.create({
     fullContainer: { flex: 1, backgroundColor: COLORS.background },
+    header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 50, backgroundColor: COLORS.white },
+    backButton: { paddingRight: 20 },
+    headerTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.text },
+
     content: { padding: 20, gap: 20, paddingBottom: 50 },
 
-    // --- 1. Result Card ---
+    imageContainer: {
+        height: 300,
+        backgroundColor: '#000',
+        borderRadius: 15,
+        overflow: 'hidden',
+        marginBottom: 10,
+    },
+    resultImage: { width: '100%', height: '100%' },
+
+    // Result Card
     resultCard: {
         backgroundColor: COLORS.white,
         borderRadius: 15,
         padding: 20,
         alignItems: 'center',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2,
+        elevation: 2,
     },
-    resultIcon: { fontSize: 60, marginBottom: 10 },
-    resultType: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginBottom: 5 },
+    resultIcon: { fontSize: 50, marginBottom: 10 },
+    resultType: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, textTransform: 'uppercase' },
     resultCategory: { fontSize: 16, color: COLORS.onSurfaceVariant, marginBottom: 15 },
-    
-    // Confidence Meter
+
+    // Confidence
     confidenceMeterContainer: { width: '100%', marginBottom: 15 },
     confidenceHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
     confidenceLabel: { fontSize: 14, color: COLORS.onSurfaceVariant },
     confidenceValue: { fontSize: 14, fontWeight: 'bold' },
-    progressBarBackground: { height: 8, backgroundColor: COLORS.surfaceVariant, borderRadius: 4, overflow: 'hidden' },
+    progressBarBackground: { height: 8, backgroundColor: COLORS.outline, borderRadius: 4, overflow: 'hidden' },
     progressBarFill: { height: '100%' },
 
-    // Points Earned Box
+    // Points
     pointsEarnedBox: {
         backgroundColor: COLORS.primaryLight,
         borderRadius: 10,
         padding: 10,
-        marginTop: 10,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -176,35 +222,18 @@ const styles = StyleSheet.create({
     pointsEarnedLabel: { fontSize: 14, color: COLORS.onSurfaceVariant },
     pointsEarnedValue: { fontSize: 20, fontWeight: 'bold' },
 
-    // --- 2. Instructions ---
+    // Instructions
     instructionsCard: {
         backgroundColor: COLORS.white,
         borderRadius: 15,
         padding: 20,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2,
+        elevation: 2,
     },
-    instructionsTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginBottom: 15 },
-    instructionRow: { flexDirection: 'row', gap: 15, marginBottom: 10, alignItems: 'flex-start' },
-    instructionNumberCircle: {
-        width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary,
-        justifyContent: 'center', alignItems: 'center', flexShrink: 0,
-    },
-    instructionNumber: { color: COLORS.white, fontSize: 14, fontWeight: 'bold' },
-    instructionText: { fontSize: 16, color: COLORS.onSurfaceVariant, flex: 1 },
+    instructionsTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginBottom: 10 },
+    instructionText: { fontSize: 16, color: COLORS.onSurfaceVariant, lineHeight: 22 },
 
-    // --- 3. Actions ---
-    actionsContainer: { gap: 10 },
-    primaryButton: {
-        backgroundColor: COLORS.primary,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 15,
-        borderRadius: 30,
-        gap: 10,
-    },
-    primaryButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
-    
+    // Actions
+    actionsContainer: { marginTop: 20, paddingBottom: 30 },
     outlineButton: {
         backgroundColor: COLORS.white,
         flexDirection: 'row',
@@ -213,17 +242,8 @@ const styles = StyleSheet.create({
         padding: 15,
         borderRadius: 30,
         borderWidth: 2,
-        borderColor: COLORS.outline,
+        borderColor: COLORS.primary,
         gap: 10,
     },
     outlineButtonText: { color: COLORS.primary, fontSize: 18, fontWeight: 'bold' },
-
-    textButton: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 15,
-        gap: 10,
-    },
-    textButtonText: { color: COLORS.onSurfaceVariant, fontSize: 16, fontWeight: 'bold' },
 });

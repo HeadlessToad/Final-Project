@@ -114,7 +114,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     </View>
   );
 
-  const userName = profile?.displayName || user?.email?.split('@')[0] || 'Eco Warrior';
+  const userName = profile?.fullName || user?.email?.split('@')[0] || 'Eco Warrior';
   const userPoints = profile?.points ?? 0;
 
 

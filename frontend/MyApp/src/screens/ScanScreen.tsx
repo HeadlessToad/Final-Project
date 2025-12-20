@@ -1,30 +1,31 @@
 // screens/ScanScreen.tsx
-
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Platform } from 'react-native';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../types";
+import { RootStackParamList, PredictionResponse } from "../types";
 import { CameraView, Camera } from 'expo-camera'; // Use CameraView for Expo Go compatibility
-import { Camera as CameraIcon, Zap, ArrowLeft } from 'lucide-react-native'; 
+import { Camera as CameraIcon, Zap, ArrowLeft } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native'; // For managing camera state
 
 const { width, height } = Dimensions.get('window');
 const FRAME_SIZE = width * 0.75; // Approx 75% of screen width
 
 const COLORS = {
-    primary: '#4CAF50', 
+    primary: '#4CAF50',
     white: '#FFFFFF',
     darkBackground: '#121212', // Black/dark theme for camera screen
     scanFrame: '#00D47C', // Bright green highlight
 };
 
 type ScanScreenProps = NativeStackScreenProps<RootStackParamList, "ScanScreen">;
+const API_URL = "https://waste-classifier-eu-89824582784.europe-west1.run.app"
 
 export default function ScanScreen({ navigation }: ScanScreenProps) {
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const cameraRef = useRef<CameraView>(null);
     const [isCameraActive, setIsCameraActive] = useState(false);
+    const [image, setImage] = useState<string | null>(null)
 
     // 1. Request Camera Permission on mount
     useFocusEffect(
@@ -38,16 +39,58 @@ export default function ScanScreen({ navigation }: ScanScreenProps) {
         }, [])
     );
 
-    const handleCapture = () => {
+    const handleCapture = async () => {
         if (!cameraRef.current || isScanning) return;
-        
+
         setIsScanning(true);
-        // Simulate analysis delay, then navigate
-        setTimeout(() => {
+        try {
+            // 1. Take the picture (Await is crucial here!)
+            const photo = await cameraRef.current.takePictureAsync({
+                quality: 0.7, // Compress slightly for faster upload
+                base64: false,
+            });
+
+            if (!photo?.uri) {
+                throw new Error("Failed to capture image");
+            }
+
+            // 2. Prepare the file for upload
+            const formData = new FormData();
+            formData.append('file', {
+                uri: photo.uri,
+                name: 'photo.jpg',
+                type: 'image/jpeg',
+            } as any); // 'as any' quiets TypeScript complaining about RN FormData
+
+            // 3. Send to Python Backend
+            console.log("Sending to:", `${API_URL}/predict`);
+            const response = await fetch(`${API_URL}/predict`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server Error: ${response.status}`);
+            }
+
+            const data: PredictionResponse = await response.json();
+            console.log("Prediction received:", data);
+
+            // 4. Navigate with REAL data
+            navigation.navigate('ClassificationResult', {
+                resultData: data,    // The JSON from Python (class_name, confidence)
+                imageUri: photo.uri  // The local photo to display
+            });
+
+        } catch (error) {
+            console.error("Scan failed:", error);
+            alert("Connection Error. Check your IP config or Server.");
+        } finally {
             setIsScanning(false);
-            // 🔥 Navigate to the result screen (where the image is displayed)
-            navigation.navigate('ClassificationResult');
-        }, 2000); 
+        }
     };
 
     if (hasPermission === null) {
@@ -62,14 +105,13 @@ export default function ScanScreen({ navigation }: ScanScreenProps) {
         <View style={styles.fullContainer}>
             {/* 1. Camera View */}
             {isCameraActive && (
-                 <CameraView 
-                    style={StyleSheet.absoluteFill} 
-                    ref={cameraRef} 
+                <CameraView
+                    style={StyleSheet.absoluteFill}
+                    ref={cameraRef}
                     facing="back"
-                    // Removed video/audio flags for basic image scanning
-                 />
+                />
             )}
-            
+
 
             {/* 2. Scanning Overlay */}
             {isScanning && (
@@ -78,7 +120,7 @@ export default function ScanScreen({ navigation }: ScanScreenProps) {
                     <Text style={styles.scanningText}>Analyzing...</Text>
                 </View>
             )}
-            
+
             {/* 3. Header/Back Button (Custom, transparent) */}
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                 <ArrowLeft size={24} color={COLORS.white} />
@@ -86,7 +128,7 @@ export default function ScanScreen({ navigation }: ScanScreenProps) {
 
             {/* 4. Frame Guide and Instructions */}
             <View style={styles.overlay}>
-                
+
                 <View style={styles.guideContainer}>
                     <View style={styles.frameGuide}>
                         <CameraIcon size={FRAME_SIZE * 0.4} color={COLORS.white} opacity={0.6} />
@@ -130,7 +172,7 @@ const styles = StyleSheet.create({
     fullContainer: { flex: 1, backgroundColor: COLORS.darkBackground },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.darkBackground },
     permissionText: { color: COLORS.white, padding: 40, textAlign: 'center' },
-    
+
     // --- Camera Controls ---
     backButton: {
         position: 'absolute',
@@ -151,7 +193,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         zIndex: 5,
     },
-    
+
     // --- Overlay & Guide ---
     overlay: {
         ...StyleSheet.absoluteFillObject,
@@ -229,7 +271,7 @@ const styles = StyleSheet.create({
         borderRadius: 27.5,
         backgroundColor: COLORS.primary,
     },
-    
+
     // --- Scanning State ---
     scanningOverlay: {
         ...StyleSheet.absoluteFillObject,
