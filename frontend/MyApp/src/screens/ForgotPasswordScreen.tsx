@@ -1,237 +1,141 @@
-// screens/ForgotPasswordScreen.tsx
-
 import React, { useState } from 'react';
 import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    ScrollView, 
-    TextInput, 
-    TouchableOpacity, 
-    ActivityIndicator, 
-    Alert 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView
 } from 'react-native';
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
-import { Mail } from 'lucide-react-native'; 
-import { sendPasswordResetEmail } from 'firebase/auth'; // 🔥 Firebase function
-import { auth } from '../firebaseConfig'; // 🔥 Firebase auth instance
+import { sendPasswordResetEmail } from "firebase/auth"; // 🔥 Import this
+import { auth } from "../firebaseConfig";
+import { Mail, ArrowLeft } from 'lucide-react-native';
 
 const COLORS = {
-    primary: '#4CAF50', 
-    primaryLight: '#8BC34A', 
-    background: '#F9F9F9',
-    white: '#FFFFFF',
-    text: '#1B5E20', 
-    onSurfaceVariant: '#616161', 
-    outline: '#E0E0E0',
+  primary: '#4CAF50',
+  background: '#FFFFFF',
+  text: '#1B5E20',
+  placeholder: '#9E9E9E',
+  outline: '#E0E0E0',
+  error: '#F44335',
 };
 
-// --- PROP TYPES (REMARK: Defines props passed by the Stack Navigator) ---
-type ForgotPasswordScreenProps = NativeStackScreenProps<RootStackParamList, "ForgotPassword">;
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList, "ForgotPassword">;
+};
 
-// --- Custom Input Component (REMARK: Reusable styled input row) ---
-const CustomInput = ({ label, icon: Icon, placeholder, value, onChangeText }: any) => (
-    <View style={styles.inputWrapper}>
-        <Text style={styles.inputLabel}>{label}</Text>
-        <View style={styles.inputContainer}>
-            <Icon size={20} color={COLORS.placeholder} style={styles.inputIcon} />
-            <TextInput
-                style={styles.inputField}
-                placeholder={placeholder}
-                placeholderTextColor={COLORS.placeholder}
-                value={value}
-                onChangeText={onChangeText}
-                keyboardType="email-address"
-                autoCapitalize="none"
-            />
-        </View>
-    </View>
-);
+export default function ForgotPasswordScreen({ navigation }: Props) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
 
+  const handleResetPassword = async () => {
+    if (!email.trim() || !email.includes("@")) {
+      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
+    }
 
-export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) {
-    // REMARK: State for email input, success flag, and loading status
-    const [email, setEmail] = useState('');
-    const [sent, setSent] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    setLoading(true);
+    try {
+      // 🔥 THE MAGIC LINE: Firebase sends the email for you
+      await sendPasswordResetEmail(auth, email);
+      
+      Alert.alert(
+        "Check your Email", 
+        "A password reset link has been sent to " + email,
+        [{ text: "OK", onPress: () => navigation.navigate("Login") }]
+      );
+    } catch (error: any) {
+      console.error(error);
+      if (error.code === 'auth/user-not-found') {
+        Alert.alert("Error", "No user found with this email address.");
+      } else {
+        Alert.alert("Error", "Something went wrong. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // --- FIREBASE LOGIC: Send Reset Link ---
-    const handleSend = async () => {
-        // COMMAND: Basic client-side validation
-        if (!email.includes("@") || email.length < 5) {
-            setErrorMessage("Please enter a valid email address.");
-            return;
-        }
+  return (
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView contentContainerStyle={styles.content}>
+        
+        {/* Back Button */}
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <ArrowLeft size={24} color={COLORS.text} />
+        </TouchableOpacity>
 
-        // COMMAND: Start loading and clear previous errors
-        setLoading(true);
-        setErrorMessage(null);
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>Reset Password</Text>
+          <Text style={styles.subtitle}>
+            Enter your email address and we'll send you a link to reset your password.
+          </Text>
+        </View>
 
-        try {
-            // COMMAND: Call Firebase Auth service to send the reset email
-            await sendPasswordResetEmail(auth, email);
-            
-            // COMMAND: On success, switch the UI state to show the success message
-            setSent(true); 
+        {/* Input */}
+        <View style={styles.inputWrapper}>
+          <Text style={styles.label}>Email</Text>
+          <View style={styles.inputContainer}>
+            <Mail size={20} color={COLORS.placeholder} style={{ marginRight: 10 }} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              placeholderTextColor={COLORS.placeholder}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+        </View>
 
-        } catch (error: any) {
-            // COMMAND: Handle and display Firebase errors
-            let msg = "Failed to send reset link. Please try again.";
-            if (error.code === "auth/user-not-found") {
-                msg = "No user found with that email.";
-            }
-            setErrorMessage(msg);
-            
-        } finally {
-            // COMMAND: End loading state
-            setLoading(false);
-        }
-    };
+        {/* Action Button */}
+        {loading ? (
+          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+        ) : (
+          <TouchableOpacity 
+            style={styles.button} 
+            onPress={handleResetPassword} 
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonText}>Send Reset Link</Text>
+          </TouchableOpacity>
+        )}
 
-    return (
-        <View style={styles.fullContainer}>
-            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-                
-                {!sent ? (
-                    /* --- State 1: Input Form (REMARK: Shows input fields and Send button) --- */
-                    <>
-                        <View style={styles.introContainer}>
-                            <Text style={styles.pageTitle}>Reset Password</Text>
-                            <Text style={styles.pageSubtitle}>
-                                Enter your email address and we'll send you a link to reset your password
-                            </Text>
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <CustomInput
-                                label="Email"
-                                placeholder="Enter your email"
-                                value={email}
-                                onChangeText={(t: string) => { setEmail(t); setErrorMessage(null); }}
-                                icon={Mail} // REMARK: Mail icon component
-                            />
-                            {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-                        </View>
-
-                        <TouchableOpacity
-                            style={[styles.actionButton, styles.primaryButton]}
-                            onPress={handleSend} // COMMAND: Triggers Firebase reset logic
-                            disabled={loading}
-                            activeOpacity={0.8}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color={COLORS.white} />
-                            ) : (
-                                <Text style={styles.primaryButtonText}>Send Reset Link</Text>
-                            )}
-                        </TouchableOpacity>
-                    </>
-                ) : (
-                    /* --- State 2: Success Message (REMARK: Shows confirmation and back button) --- */
-                    <View style={styles.successContainer}>
-                        <View style={styles.successIconCircle}>
-                            <Mail size={40} color={COLORS.primary} />
-                        </View>
-                        <Text style={styles.successTitle}>Check Your Email</Text>
-                        <Text style={styles.successSubtitle}>
-                            We've sent a password reset link to
-                            {email && (
-                                <Text style={styles.emailHighlight}>
-                                    {`\n${email}`}
-                                </Text>
-                            )}
-                        </Text>
-                        <TouchableOpacity
-                            style={[styles.actionButton, styles.primaryButton, styles.successButton]}
-                            onPress={() => navigation.navigate('Login')} // COMMAND: Navigates back to the Login Form
-                        >
-                            <Text style={styles.primaryButtonText}>Back to Login</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-            </ScrollView>
-        </View>
-    );
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }
 
 const styles = StyleSheet.create({
-    fullContainer: { flex: 1, backgroundColor: COLORS.background },
-    content: { padding: 20, paddingBottom: 50 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  content: { padding: 20, paddingTop: 60 },
+  backButton: { marginBottom: 20 },
+  headerContainer: { marginBottom: 40 },
+  title: { fontSize: 28, fontWeight: 'bold', color: COLORS.text, marginBottom: 10 },
+  subtitle: { fontSize: 16, color: COLORS.placeholder, lineHeight: 22 },
+  
+  inputWrapper: { marginBottom: 30 },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
+  inputContainer: { 
+    flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.outline, 
+    borderRadius: 12, paddingHorizontal: 15, height: 55, backgroundColor: '#FAFAFA'
+  },
+  input: { flex: 1, fontSize: 16, color: COLORS.text },
 
-    // --- State 1: Form Styles ---
-    // REMARK: Container for title and subtitle
-    introContainer: { marginBottom: 30, },
-    pageTitle: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginBottom: 5, },
-    pageSubtitle: { fontSize: 16, color: COLORS.onSurfaceVariant, },
-    inputGroup: { marginBottom: 30, },
-    inputWrapper: { marginBottom: 15, },
-    inputLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 5, },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: COLORS.outline,
-        borderRadius: 10,
-        paddingHorizontal: 15,
-        backgroundColor: COLORS.white, 
-        height: 55,
-    },
-    inputIcon: { marginRight: 10, },
-    inputField: { flex: 1, fontSize: 16, color: COLORS.text, },
-    errorText: { color: COLORS.error, marginBottom: 15, textAlign: "center", fontWeight: "500", },
-
-    // --- State 2: Success Styles ---
-    // REMARK: Centers the success message content
-    successContainer: {
-        alignItems: 'center',
-        paddingTop: 40,
-    },
-    // REMARK: The green circle surrounding the email icon
-    successIconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: COLORS.primaryLight,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 30,
-    },
-    successTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: COLORS.text,
-        marginBottom: 15,
-    },
-    successSubtitle: {
-        fontSize: 16,
-        color: COLORS.onSurfaceVariant,
-        textAlign: 'center',
-        marginBottom: 30,
-        lineHeight: 24,
-    },
-    emailHighlight: {
-        color: COLORS.text,
-        fontWeight: 'bold',
-    },
-    successButton: {
-        marginTop: 0, 
-    },
-    
-    // --- Buttons ---
-    actionButton: {
-        width: '100%',
-        padding: 16,
-        borderRadius: 30,
-        alignItems: 'center',
-    },
-    primaryButton: {
-        backgroundColor: COLORS.primary,
-    },
-    primaryButtonText: {
-        color: COLORS.white,
-        fontWeight: 'bold',
-        fontSize: 18,
-    },
+  button: { 
+    backgroundColor: COLORS.primary, height: 55, borderRadius: 30, 
+    justifyContent: 'center', alignItems: 'center', shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, elevation: 3
+  },
+  buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
 });
