@@ -65,8 +65,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         { icon: <User size={20} color={COLORS.onSurfaceVariant} />, label: 'Personal Details', screen: 'PersonalDetails' as keyof RootStackParamList }, // Using Profile temporarily
         { icon: <History size={20} color={COLORS.onSurfaceVariant} />, label: 'Classification History', screen: 'ClassificationHistory' as keyof RootStackParamList },
         { icon: <TrendingUp size={20} color={COLORS.onSurfaceVariant} />, label: 'Points History', screen: 'PointsHistory' as keyof RootStackParamList }, // Reusing Rewards route
-        { icon: <MessageSquare size={20} color={COLORS.onSurfaceVariant} />, label: 'Rate Us', screen: 'Profile' as keyof RootStackParamList }, // Placeholder
-        { icon: <Settings size={20} color={COLORS.onSurfaceVariant} />, label: 'Settings', screen: 'Settings' as keyof RootStackParamList }
+        // { icon: <MessageSquare size={20} color={COLORS.onSurfaceVariant} />, label: 'Rate Us', screen: 'Profile' as keyof RootStackParamList }, // Placeholder
+        // { icon: <Settings size={20} color={COLORS.onSurfaceVariant} />, label: 'Settings', screen: 'Settings' as keyof RootStackParamList }
     ];
 
     const handleLogout = () => {
@@ -82,7 +82,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Profile</Text>
                     <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} activeOpacity={0.7}>
-                        <LogOut size={24} color={COLORS.error} />
+                        <LogOut size={24} color={COLORS.error}  />
                     </TouchableOpacity>
                 </View>
 

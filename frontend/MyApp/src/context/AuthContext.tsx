@@ -31,7 +31,8 @@ interface AuthContextType {
     profile: UserProfile | null;
     userRole: "admin" | "user" | null;
     loading: boolean;
-    refreshProfile: () => Promise<void>; // 🔥 NEW: Function to manually refresh profile data
+    refreshProfile: () => Promise<void>;
+    
 }
 
 // --- INITIAL CONTEXT VALUE ---

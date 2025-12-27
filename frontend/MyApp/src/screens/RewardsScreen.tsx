@@ -1,161 +1,206 @@
-// screens/RewardsScreen.tsx (The Catalog Page)
+// screens/RewardsScreen.tsx
 
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, TextInput } from 'react-native';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
-import { Coins, Gift } from 'lucide-react-native';
+import { Coins, Search } from 'lucide-react-native'; // Ensure you have this icon
 import { useAuth } from '../context/AuthContext'; 
 import { BottomNavBar } from '../navigation/BottomNavBar';
 
-// Note: We use 'Rewards' as the screen name in AppNavigator
+// IMPORT THE DATA
+import { REWARDS_DATA, CATEGORIES, RewardItem } from '../data/rewardsData';
 
 const { width } = Dimensions.get('window');
-const ITEM_WIDTH = (width - 60) / 2; // 20 padding left + 20 padding right + 20 gap = 60
+const ITEM_WIDTH = (width - 48) / 2; 
 
 const COLORS = {
     primary: '#4CAF50', 
-    background: '#F9F9F9',
+    background: '#F5F7FA',
     text: '#1B5E20', 
-    onSurfaceVariant: '#616161', 
     white: '#FFFFFF',
+    grey: '#9E9E9E',
+    lightGrey: '#E0E0E0'
 };
 
-// --- INTERFACES (from types.ts, included here for context) ---
-export interface RewardItem {
-    id: number;
-    title: string;
-    points: number;
-    image: string; // URL
-    description: string;
-}
-
-// --- MOCK DATA (from Figma code) ---
-const rewards: RewardItem[] = [
-    { id: 1, title: 'Coffee Shop Voucher', points: 200, image: 'https://images.unsplash.com/photo-1757136486127-8127c5267a06?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb2ZmZWUlMjB2b3VjaGVyJTIwZ2lmdCUyMGNhcmR8ZW58MXx8fHwxNzY0NTA1NzY1fDA&ixlib=rb-4.1.0&q=80&w=1080', description: '$5 voucher at participating coffee shops' },
-    { id: 2, title: 'Plant a Tree', points: 500, image: 'https://images.unsplash.com/photo-1636116305751-dd062664d4a7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwbGFudCUyMHNlZWRsaW5nJTIwZWNvfGVufDF8fHx8MTc2NDUwNTc2NXww&ixlib=rb-4.1.0&q=80&w=1080', description: 'We\'ll plant a tree in your name' },
-    { id: 3, title: 'Shopping Discount', points: 300, image: 'https://images.unsplash.com/photo-1644370644949-b175294cbceb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxzaG9wcGluZyUyMGRpc2NvdW50JTIwY291cG9ufGVufDF8fHx8MTc2NDUwNTc2Nnww&ixlib=rb-4.1.0&q=80&w=1080', description: '10% off at eco-friendly stores' },
-    { id: 4, title: 'Reusable Water Bottle', points: 400, image: 'https://images.unsplash.com/photo-1623684194967-48075185a58c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxyZXVzYWJsZSUyMHdhdGVyJTIwYm90dGxlfGVufDF8fHx8MTc2NDUwNTc2Nnww&ixlib=rb-4.1.0&q=80&w=1080', description: 'Premium stainless steel water bottle' },
-    // Add all 6 items here...
-    { id: 5, title: 'Eco Tote Bag', points: 250, image: 'https://images.unsplash.com/photo-1764033789435-8d27429b13cf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0b3RlJTIwYmFnJTIwZWNvJTIwZnJpZW5kbHl8ZW58MXx8fHwxNzY0NDE4MDk0fDA&ixlib=rb-4.1.0&q=80&w=1080', description: 'Organic cotton reusable bag' },
-    { id: 6, title: 'Green Energy Credit', points: 1000, image: 'https://images.unsplash.com/photo-1749805339958-4b1d0f16423d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWN5Y2xpbmclMjBlY28lMjBlbnZpcm9ubWVudHxlbnwxfHx8fDE3NjQ1MDU3NjR8MA&ixlib=rb-4.1.0&q=80&w=1080', description: '$20 credit towards renewable energy' }
-];
-
 type RewardsScreenProps = NativeStackScreenProps<RootStackParamList, "Rewards">;
-
-
-// --- Reward Tile Component ---
-const RewardTile: React.FC<{ reward: RewardItem, onPress: () => void }> = ({ reward, onPress }) => (
-    <TouchableOpacity onPress={onPress} style={styles.rewardTile} activeOpacity={0.8}>
-        <Image source={{ uri: reward.image }} style={styles.rewardImage} />
-        <View style={styles.rewardTextContainer}>
-            <Text style={styles.rewardTitle} numberOfLines={2}>{reward.title}</Text>
-            <View style={styles.rewardPointsContainer}>
-                <Coins size={16} color={COLORS.primary} />
-                <Text style={styles.rewardPointsText}>{reward.points}</Text>
-            </View>
-        </View>
-    </TouchableOpacity>
-);
-
 
 export default function RewardsCatalogScreen({ navigation }: RewardsScreenProps) {
     const { profile } = useAuth();
     
-    // Function to navigate to the details screen, passing the selected reward data
+    // State for Filters
+    const [selectedCategory, setSelectedCategory] = useState('All');
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // --- FILTER LOGIC ---
+    // This runs every time the user types or clicks a category
+    const filteredRewards = REWARDS_DATA.filter(item => {
+        const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+        const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCategory && matchesSearch;
+    });
+
     const handleRewardClick = (reward: RewardItem) => {
-        // 🔥 Navigate to the RewardDetails screen, passing the reward object
+        // @ts-ignore
         navigation.navigate('RewardDetails', { selectedReward: reward }); 
     };
 
+    // Render Category Tab
+    const renderCategoryItem = ({ item }: { item: string }) => (
+        <TouchableOpacity 
+            onPress={() => setSelectedCategory(item)}
+            style={[
+                styles.categoryChip, 
+                selectedCategory === item && styles.categoryChipActive
+            ]}
+        >
+            <Text style={[
+                styles.categoryText, 
+                selectedCategory === item && styles.categoryTextActive
+            ]}>
+                {item}
+            </Text>
+        </TouchableOpacity>
+    );
+
+    // Render Reward Tile
+    const renderRewardItem = ({ item }: { item: RewardItem }) => (
+        <TouchableOpacity onPress={() => handleRewardClick(item)} style={styles.rewardTile} activeOpacity={0.9}>
+            <Image source={{ uri: item.image }} style={styles.rewardImage} />
+            <View style={styles.rewardContent}>
+                <Text style={styles.categoryLabel}>{item.category}</Text>
+                <Text style={styles.rewardTitle} numberOfLines={2}>{item.title}</Text>
+                <View style={styles.pointsBadge}>
+                    <Coins size={14} color={COLORS.white} />
+                    <Text style={styles.pointsText}>{item.points}</Text>
+                </View>
+            </View>
+        </TouchableOpacity>
+    );
+
     return (
         <View style={styles.fullContainer}>
-            {/* Header title is set by AppNavigator: "Rewards Catalog" */}
             
-            <View style={styles.headerTextContainer}>
-                <Text style={styles.headerSubtitle}>
-                    Redeem your points for eco-friendly rewards and make a difference!
-                </Text>
+            {/* 1. Header Section */}
+            <View style={styles.header}>
+                <View style={styles.balanceContainer}>
+                   <Text style={styles.balanceLabel}>Your Balance</Text>
+                   <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
+                        <Coins size={24} color="#FFD700" fill="#FFD700" />
+                        <Text style={styles.balanceValue}>{profile?.points || 0}</Text>
+                   </View>
+                </View>
+
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <Search size={20} color={COLORS.grey} />
+                    <TextInput 
+                        placeholder="Search for gifts..." 
+                        style={styles.searchInput}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                </View>
             </View>
 
-            {/* Rewards Grid */}
+            {/* 2. Categories Horizontal Scroll */}
+            <View style={{ height: 60 }}>
+                <FlatList
+                    data={CATEGORIES}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={item => item}
+                    renderItem={renderCategoryItem}
+                    contentContainerStyle={styles.categoriesList}
+                />
+            </View>
+
+            {/* 3. Rewards Grid */}
             <FlatList
-                data={rewards}
-                keyExtractor={(item) => item.id.toString()}
+                data={filteredRewards}
+                keyExtractor={(item) => item.id}
                 numColumns={2}
                 columnWrapperStyle={styles.columnWrapper}
                 contentContainerStyle={styles.rewardsGrid}
-                renderItem={({ item }) => (
-                    <RewardTile 
-                        reward={item} 
-                        onPress={() => handleRewardClick(item)} 
-                    />
-                )}
+                renderItem={renderRewardItem}
+                ListEmptyComponent={
+                    <Text style={styles.emptyText}>No items found matching "{searchQuery}"</Text>
+                }
             />
 
-            {/* --- Bottom Navigation (Required for persistent tabs) --- */}
             <BottomNavBar currentRoute="Rewards" />
-
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     fullContainer: { flex: 1, backgroundColor: COLORS.background },
-    headerTextContainer: {
-        paddingHorizontal: 20,
-        paddingTop: 10,
-        paddingBottom: 20,
-    },
-    headerSubtitle: {
-        fontSize: 16,
-        color: COLORS.onSurfaceVariant,
-    },
-    rewardsGrid: {
-        paddingHorizontal: 20,
-        paddingBottom: 50,
-    },
-    columnWrapper: {
-        justifyContent: 'space-between',
-        marginBottom: 15,
-    },
     
-    // --- Reward Tile Styles ---
+    // Header
+    header: { padding: 20, backgroundColor: COLORS.white, paddingBottom: 10 },
+    balanceContainer: { marginBottom: 15 },
+    balanceLabel: { fontSize: 14, color: COLORS.grey },
+    balanceValue: { fontSize: 32, fontWeight: '800', color: COLORS.text },
+    
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F0F0',
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        height: 50,
+    },
+    searchInput: { flex: 1, marginLeft: 10, fontSize: 16 },
+
+    // Categories
+    categoriesList: { paddingHorizontal: 20, paddingVertical: 10, gap: 10 },
+    categoryChip: {
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: COLORS.white,
+        borderWidth: 1,
+        borderColor: COLORS.lightGrey,
+        marginRight: 8,
+    },
+    categoryChipActive: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    categoryText: { fontWeight: '600', color: COLORS.grey },
+    categoryTextActive: { color: COLORS.white },
+
+    // Grid
+    rewardsGrid: { padding: 16, paddingBottom: 80 },
+    columnWrapper: { justifyContent: 'space-between' },
+    emptyText: { textAlign: 'center', marginTop: 50, color: COLORS.grey },
+
+    // Tile
     rewardTile: {
         width: ITEM_WIDTH,
         backgroundColor: COLORS.white,
-        borderRadius: 15,
-        overflow: 'hidden',
-        shadowColor: '#000',
+        borderRadius: 16,
+        marginBottom: 16,
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
         elevation: 3,
+        overflow: 'hidden'
     },
-    rewardImage: {
-        width: '100%',
-        height: ITEM_WIDTH, 
-        backgroundColor: COLORS.surfaceVariant,
+    rewardImage: { width: '100%', height: 120, resizeMode: 'cover' },
+    rewardContent: { padding: 12 },
+    categoryLabel: { fontSize: 10, color: COLORS.primary, fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 },
+    rewardTitle: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8, height: 40 },
+    pointsBadge: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: COLORS.primary, 
+        alignSelf: 'flex-start', 
+        paddingVertical: 4, 
+        paddingHorizontal: 8, 
+        borderRadius: 8, 
+        gap: 4 
     },
-    rewardTextContainer: {
-        padding: 10,
-    },
-    rewardTitle: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: COLORS.text,
-        marginBottom: 5,
-        minHeight: 35, 
-    },
-    rewardPointsContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        marginTop: 5,
-    },
-    rewardPointsText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: COLORS.primary,
-    },
+    pointsText: { color: COLORS.white, fontWeight: 'bold', fontSize: 12 }
 });
