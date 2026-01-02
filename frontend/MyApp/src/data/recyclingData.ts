@@ -1,5 +1,7 @@
 // src/recyclingData.ts
 
+import rawGeoJson from '../recycling_centers.json';
+
 export interface Center {
     id: number;
     name: string;
@@ -9,76 +11,45 @@ export interface Center {
     wasteTypes: string[];
 }
 
-export const REAL_CENTERS: Center[] = [
-    // --- RISHON LEZION ---
-    {
-        id: 1,
-        name: 'Azrieli Mall Rishonim',
-        address: 'Nimrod St 2, Rishon LeTsiyon',
-        latitude: 31.9510,
-        longitude: 34.8055,
-        wasteTypes: ['Electronics', 'Bottles', 'Paper']
-    },
-    {
-        id: 2,
-        name: 'Yes Planet Rishon',
-        address: 'HaMea VeEsrim St 4, Rishon LeTsiyon',
-        latitude: 31.9764,
-        longitude: 34.7667,
-        wasteTypes: ['Glass', 'Plastic']
-    },
-    {
-        id: 3,
-        name: 'Gold Mall (Kenyon HaZahav)',
-        address: 'David Sakharov St 21, Rishon LeTsiyon',
-        latitude: 31.9918,
-        longitude: 34.7735,
-        wasteTypes: ['Clothing', 'Batteries', 'Cartons']
-    },
+// 🔥 STRICT FILTERING LOGIC
+export const REAL_CENTERS: Center[] = (rawGeoJson as any).features
+    .map((feature: any, index: number) => {
+        
+        const lng = feature.geometry.coordinates[0];
+        const lat = feature.geometry.coordinates[1];
+        const p = feature.properties;
 
-    // --- TEL AVIV ---
-    {
-        id: 4,
-        name: 'Dizengoff Center',
-        address: 'Dizengoff St 50, Tel Aviv',
-        latitude: 32.0754,
-        longitude: 34.7757,
-        wasteTypes: ['Electronics', 'Bottles', 'Paper']
-    },
-    {
-        id: 5,
-        name: 'Sarona Market Recycling',
-        address: 'Aluf Kalman Magen St 3, Tel Aviv',
-        latitude: 32.0718,
-        longitude: 34.7889,
-        wasteTypes: ['Plastic', 'Glass', 'Organic']
-    },
-    {
-        id: 6,
-        name: 'Tel Aviv Port (Namal)',
-        address: 'Nemal Tel Aviv St 12, Tel Aviv',
-        latitude: 32.0970,
-        longitude: 34.7736,
-        wasteTypes: ['Plastic', 'Paper']
-    },
+        // 1. Name Strategy: Use real name, or construct one from the address
+        let name = p.name || p["name:en"] || p["name:he"];
+        if (!name && p["addr:street"]) {
+            name = `${p["addr:street"]} Recycling`;
+        }
+        if (!name) name = "Recycling Point";
 
-    // --- JERUSALEM ---
-    {
-        id: 7,
-        name: 'The First Station',
-        address: 'David Remez St 4, Jerusalem',
-        latitude: 31.7665,
-        longitude: 35.2243,
-        wasteTypes: ['Glass', 'Paper', 'Clothing']
-    },
-    
-    // --- HAIFA ---
-    {
-        id: 8,
-        name: 'Grand Canyon Mall',
-        address: 'Simha Golan Rd 54, Haifa',
-        latitude: 32.7876,
-        longitude: 35.0069,
-        wasteTypes: ['Electronics', 'Batteries']
-    }
-];
+        // 2. Detect Types
+        const detectedTypes: string[] = [];
+        if (p['recycling:glass'] === 'yes' || p['amenity'] === 'recycling_glass') detectedTypes.push('Glass');
+        if (p['recycling:paper'] === 'yes' || p['amenity'] === 'recycling_paper') detectedTypes.push('Paper');
+        if (p['recycling:cans'] === 'yes') detectedTypes.push('Cans');
+        if (p['recycling:plastic'] === 'yes') detectedTypes.push('Plastic');
+        if (p['recycling:clothes'] === 'yes') detectedTypes.push('Clothing');
+        if (p['recycling:batteries'] === 'yes') detectedTypes.push('Batteries');
+        if (p['recycling:electronics'] === 'yes') detectedTypes.push('Electronics');
+
+        // 3. 🚨 THE FILTER: If we found NO specific types, return null (mark for deletion)
+        if (detectedTypes.length === 0) {
+            return null;
+        }
+
+        return {
+            id: index + 1,
+            name: name,
+            address: p["addr:street"] 
+                     ? `${p["addr:street"]} ${p["addr:housenumber"] || ''}`
+                     : "Street location",
+            latitude: lat,
+            longitude: lng,
+            wasteTypes: detectedTypes
+        };
+    })
+    .filter((item: Center | null) => item !== null); // 🧹 Delete the nulls (the bad data)
