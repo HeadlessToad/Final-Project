@@ -59,19 +59,19 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     const userName = profile?.fullName || user?.email?.split('@')[0] || 'Eco Warrior';
     const userEmail = user?.email || 'N/A';
     const userPoints = profile?.points ?? 0;
+    
+    // 🔥 NEW: Get itemsScanned from DB (default to 0 if missing)
+    const userItemsScanned = profile?.itemsScanned ?? 0;
 
     // --- Data for Menu Items ---
     const menuItems: MenuItem[] = [
-        { icon: <User size={20} color={COLORS.onSurfaceVariant} />, label: 'Personal Details', screen: 'PersonalDetails' as keyof RootStackParamList }, // Using Profile temporarily
+        { icon: <User size={20} color={COLORS.onSurfaceVariant} />, label: 'Personal Details', screen: 'PersonalDetails' as keyof RootStackParamList }, 
         { icon: <History size={20} color={COLORS.onSurfaceVariant} />, label: 'Classification History', screen: 'ClassificationHistory' as keyof RootStackParamList },
-        { icon: <TrendingUp size={20} color={COLORS.onSurfaceVariant} />, label: 'Points History', screen: 'PointsHistory' as keyof RootStackParamList }, // Reusing Rewards route
-        // { icon: <MessageSquare size={20} color={COLORS.onSurfaceVariant} />, label: 'Rate Us', screen: 'Profile' as keyof RootStackParamList }, // Placeholder
-        // { icon: <Settings size={20} color={COLORS.onSurfaceVariant} />, label: 'Settings', screen: 'Settings' as keyof RootStackParamList }
+        { icon: <TrendingUp size={20} color={COLORS.onSurfaceVariant} />, label: 'Points History', screen: 'PointsHistory' as keyof RootStackParamList }, 
     ];
 
     const handleLogout = () => {
         signOut(auth);
-        // AppNavigator handles the navigation back to Welcome
     };
 
     return (
@@ -91,7 +91,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                     {/* User Info Section */}
                     <View style={styles.userInfoSection}>
                         <LinearGradient
-                            colors={['#00B8D4', COLORS.primary]} // Secondary blue/teal to primary green
+                            colors={['#00B8D4', COLORS.primary]}
                             style={styles.profilePhotoPlaceholder}
                         >
                             <User size={40} color={COLORS.white} />
@@ -127,7 +127,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                 <View style={styles.statsContainer}>
                     <View style={styles.statsCard}>
                         <Text style={styles.statsIcon}>♻️</Text>
-                        <Text style={styles.statsNumber}>47</Text>
+                        {/* 🔥 CHANGED: Now using real data from DB */}
+                        <Text style={styles.statsNumber}>{userItemsScanned}</Text>
                         <Text style={styles.statsLabel}>Items Scanned</Text>
                     </View>
                 </View>
@@ -145,10 +146,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
             </ScrollView>
 
-            {/* --- Bottom Navigation (Required for persistent tabs) --- */}
             <BottomNavBar currentRoute="Profile" />
-
-
         </View>
     );
 }
@@ -288,17 +286,7 @@ const styles = StyleSheet.create({
     // --- 4. Menu Items ---
     menuCard: {
         padding: 0,
-        overflow: 'hidden', // Ensures border radius is applied to contents
-    },
-    menuItemRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        gap: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.outline,
-        backgroundColor: COLORS.white,
+        overflow: 'hidden', 
     },
     menuItemRow: {
         flexDirection: 'row',
@@ -308,6 +296,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         borderBottomWidth: 1,
         borderBottomColor: COLORS.outline,
+        backgroundColor: COLORS.white, // Ensure background is white
     },
     menuItemLabel: {
         flex: 1,
@@ -315,7 +304,7 @@ const styles = StyleSheet.create({
         color: COLORS.text,
     },
     menuItemIconContainer: {
-        width: 24, // Ensures alignment
+        width: 24, 
         alignItems: 'center',
     },
 });
