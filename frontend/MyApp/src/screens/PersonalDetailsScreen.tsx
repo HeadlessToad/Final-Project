@@ -1,7 +1,7 @@
 // screens/PersonalDetailsScreen.tsx
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
 import { useAuth } from '../context/AuthContext';
@@ -19,8 +19,8 @@ const COLORS = {
 
 type PersonalDetailsProps = NativeStackScreenProps<RootStackParamList, "PersonalDetails">;
 
-
-// --- Detail Row Component for Navigation (Unchanged) ---
+// --- COMPONENT: Detail Row ---
+// A reusable row component that displays an icon, label, current value, and an arrow.
 interface DetailRowProps {
     label: string;
     value: string;
@@ -34,7 +34,7 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, value, icon: Icon, onPress
             <Icon size={24} color={COLORS.primary} style={styles.detailRowIcon} />
             <View>
                 <Text style={styles.detailRowLabel}>{label}</Text>
-                {/* REMOVE THE COMMENT FROM HERE */}
+                {/* Shows the actual value or a placeholder if empty */}
                 <Text style={styles.detailRowValue}>{value || 'Not set'}</Text>
             </View>
         </View>
@@ -42,22 +42,22 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, value, icon: Icon, onPress
     </TouchableOpacity>
 );
 
-
 export default function PersonalDetailsScreen({ navigation }: PersonalDetailsProps) {
-    // 🔥 GET DATA FROM AUTH CONTEXT
+    // 1. DATA SOURCE: Get the current user profile from our global AuthContext
     const { profile } = useAuth();
 
-    // Fallback for reading data from profile (using profile?.fieldName syntax)
+    // 2. DATA PREPARATION: Extract fields safely. If a field is missing, default to 'Not set'.
+    // Note: 'fullName' comes from Firebase Auth usually, others are from Firestore.
     const nameValue = profile?.fullName || 'Your Full Name';
     const genderValue = profile?.gender || 'Not set';
     const cityValue = profile?.city || 'Not set';
     const birthDateValue = profile?.birthDate || 'Not set';
     const phoneValue = profile?.phone || 'Not set';
 
-    // Helper to format name for greeting
+    // Helper: Get just the first name for a friendly greeting (e.g. "Hello John!")
     const greetingName = nameValue.split(' ')[0];
 
-
+    // 3. NAVIGATION LOGIC: Passes the field name and current value to the Edit Screen.
     const navigateToEdit = (key: 'name' | 'gender' | 'city' | 'birthDate' | 'phone', value: string) => {
         navigation.navigate('EditSingleField', {
             fieldKey: key,
@@ -69,7 +69,7 @@ export default function PersonalDetailsScreen({ navigation }: PersonalDetailsPro
         <View style={styles.fullContainer}>
             <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-                {/* Greeting Message */}
+                {/* --- Greeting Section --- */}
                 <View style={styles.greetingContainer}>
                     <Text style={styles.greetingTitle}>Hello {greetingName}! 👋</Text>
                     <Text style={styles.greetingSubtitle}>
@@ -77,40 +77,39 @@ export default function PersonalDetailsScreen({ navigation }: PersonalDetailsPro
                     </Text>
                 </View>
 
-                {/* --- Personal Details (Navigation Rows) --- */}
+                {/* --- List of Editable Details --- */}
                 <Text style={styles.sectionTitle}>Personal Details</Text>
 
                 <View style={styles.detailsGroup}>
-
-                    {/* Name Row */}
+                    {/* Name */}
                     <DetailRow
                         label="Name"
                         value={nameValue}
                         icon={User}
                         onPress={() => navigateToEdit('name', nameValue)}
                     />
-                    {/* Gender Row */}
+                    {/* Gender */}
                     <DetailRow
                         label="Gender"
                         value={genderValue}
                         icon={Heart}
                         onPress={() => navigateToEdit('gender', genderValue)}
                     />
-                    {/* City Row */}
+                    {/* City */}
                     <DetailRow
                         label="City"
                         value={cityValue}
                         icon={MapPin}
                         onPress={() => navigateToEdit('city', cityValue)}
                     />
-                    {/* Birth Date Row */}
+                    {/* Birth Date */}
                     <DetailRow
                         label="Birth Date"
                         value={birthDateValue}
                         icon={Calendar}
                         onPress={() => navigateToEdit('birthDate', birthDateValue)}
                     />
-                    {/* Phone Row */}
+                    {/* Phone */}
                     <DetailRow
                         label="Phone"
                         value={phoneValue}
@@ -118,6 +117,7 @@ export default function PersonalDetailsScreen({ navigation }: PersonalDetailsPro
                         onPress={() => navigateToEdit('phone', phoneValue)}
                     />
                 </View>
+
             </ScrollView>
         </View>
     );
@@ -150,23 +150,25 @@ const styles = StyleSheet.create({
         opacity: 0.8,
     },
 
-    // --- Navigation Row Styles ---
+    // --- Section Headers ---
     sectionTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
         marginBottom: 15,
     },
+    
+    // --- Card Group Style ---
     detailsGroup: {
         marginBottom: 30,
         backgroundColor: COLORS.white,
         borderRadius: 10,
-        overflow: 'hidden',
+        overflow: 'hidden', // Ensures inner items don't overflow rounded corners
         borderWidth: 1,
         borderColor: COLORS.outline,
     },
 
-    // --- DetailRow Specific Styles ---
+    // --- DetailRow Styles ---
     detailRowContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',

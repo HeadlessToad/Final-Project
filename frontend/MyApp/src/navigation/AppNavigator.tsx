@@ -131,7 +131,6 @@ import ClassificationHistoryScreen from "../screens/ClassificationHistoryScreen"
 import PointsHistoryScreen from "../screens/PointsHistoryScreen";
 import RewardsScreen from "../screens/RewardsScreen";
 import RewardDetailsScreen from "../screens/RewardDetailsScreen";
-import SettingsScreen from "../screens/SettingsScreen"; // <--- 1. Uncommented this
 import ScanScreen from "../screens/ScanScreen";
 import ClassificationResultScreen from "../screens/ClassificationResultScreen";
 import RecyclingCentersScreen from "../screens/RecyclingCentersScreen";
@@ -178,13 +177,6 @@ export default function AppNavigator({ user, role }: AppNavigatorProps) {
                             name="PointsHistory"
                             component={PointsHistoryScreen}
                             options={{ headerShown: true, title: "Points History" }}
-                        />
-                        
-                        {/* 2. Added Settings Route Here */}
-                        <Stack.Screen 
-                            name="Settings" 
-                            component={SettingsScreen} 
-                            options={{ headerShown: true, title: "Settings" }} 
                         />
 
                         <Stack.Screen name="Rewards" component={RewardsScreen} options={{ headerShown: true, title: "Rewards Catalog" }} />

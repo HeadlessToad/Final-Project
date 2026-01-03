@@ -1,3 +1,5 @@
+// screens/ForgotPasswordScreen.tsx
+
 import React, { useState } from 'react';
 import { 
   View, 
@@ -5,7 +7,6 @@ import {
   TextInput, 
   TouchableOpacity, 
   StyleSheet, 
-  Alert, 
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -13,9 +14,10 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
-import { sendPasswordResetEmail } from "firebase/auth"; // 🔥 Import this
+import { sendPasswordResetEmail } from "firebase/auth"; 
 import { auth } from "../firebaseConfig";
 import { Mail, ArrowLeft } from 'lucide-react-native';
+import Toast from 'react-native-toast-message'; 
 
 const COLORS = {
   primary: '#4CAF50',
@@ -35,27 +37,53 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
 
   const handleResetPassword = async () => {
+    // 1. Validation: Check if email looks real
     if (!email.trim() || !email.includes("@")) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Email',
+        text2: 'Please enter a valid email address.',
+      });
       return;
     }
 
     setLoading(true);
     try {
-      // 🔥 THE MAGIC LINE: Firebase sends the email for you
+      // 2.  FIREBASE MAGIC: 
+      // This function checks if the email exists in your Authentication list.
+      // If yes, Google sends a pre-made "Reset Password" email to that address.
+      // You don't need to build the email server yourself!
       await sendPasswordResetEmail(auth, email);
       
-      Alert.alert(
-        "Check your Email", 
-        "A password reset link has been sent to " + email,
-        [{ text: "OK", onPress: () => navigation.navigate("Login") }]
-      );
+      // 3. Success Feedback
+      Toast.show({
+        type: 'success',
+        text1: 'Check your Email 📧',
+        text2: `A reset link has been sent to ${email}`,
+        visibilityTime: 4000,
+      });
+
+      // 4. Auto-Navigation: Wait 3 seconds so they can read the toast, then go back to Login
+      setTimeout(() => {
+        navigation.navigate("Login");
+      }, 3000);
+
     } catch (error: any) {
       console.error(error);
+      
+      // 5. Error Handling
       if (error.code === 'auth/user-not-found') {
-        Alert.alert("Error", "No user found with this email address.");
+        Toast.show({
+            type: 'error',
+            text1: 'Account Not Found',
+            text2: 'No user is registered with this email.',
+        });
       } else {
-        Alert.alert("Error", "Something went wrong. Please try again.");
+        Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: 'Something went wrong. Please try again.',
+        });
       }
     } finally {
       setLoading(false);
@@ -81,7 +109,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
           </Text>
         </View>
 
-        {/* Input */}
+        {/* Input Field */}
         <View style={styles.inputWrapper}>
           <Text style={styles.label}>Email</Text>
           <View style={styles.inputContainer}>

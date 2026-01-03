@@ -7,10 +7,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { RootStackParamList } from "../types";
 
-// ❌ REMARK: Removed all 'react-native-reanimated' imports to prevent Worklets Mismatch Error.
-// ❌ REMARK: The elements below will be static, not floating.
-
-
 // --- COLOR PALETTE ---
 const COLORS = {
   lightBackground: '#E8F5E9', // Top background color
@@ -26,8 +22,6 @@ type WelcomeScreenProps = {
 };
 
 export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
-
-  // ❌ REMARK: Removed animation state (floatOffset) and logic (useEffect, useAnimatedStyle).
 
   // --- NAVIGATION HANDLERS ---
   const handleLoginPress = () => { navigation.navigate("Login"); }; // Navigates to the Login Form
@@ -111,7 +105,7 @@ const styles = StyleSheet.create({
   sideRecycleIconWrapper: {
     position: 'absolute',
     top: 50,
-    right: '25%',
+    right: '15%',
   },
   badgeIconWrapper: {
     position: 'absolute',
