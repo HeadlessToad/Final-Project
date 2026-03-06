@@ -1,0 +1,20 @@
+# YOLO Dataset Configuration for Waste Classification Fine-tuning
+# This file is auto-generated/used by the retraining pipeline
+
+# Dataset paths (will be set dynamically during training)
+# For Kaggle, these will be relative to /kaggle/working/
+path: ./feedback_dataset  # Root dataset directory
+train: images/train       # Train images relative to 'path'
+val: images/val           # Val images relative to 'path'
+
+# Number of classes
+nc: 6
+
+# Class names (must match class_map.json indices)
+names:
+  0: glass
+  1: paper
+  2: cardboard
+  3: plastic
+  4: metal
+  5: trash
