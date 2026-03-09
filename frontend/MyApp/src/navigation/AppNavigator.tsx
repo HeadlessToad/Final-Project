@@ -135,6 +135,7 @@ import ScanScreen from "../screens/ScanScreen";
 import ClassificationResultScreen from "../screens/ClassificationResultScreen";
 import RecyclingCentersScreen from "../screens/RecyclingCentersScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
+import CommunityReviewScreen from "../screens/CommunityReviewScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -203,6 +204,12 @@ export default function AppNavigator({ user, role }: AppNavigatorProps) {
                             name="RecyclingCenters"
                             component={RecyclingCentersScreen}
                             options={{ headerShown: true, title: "Recycling Centers" }}
+                        />
+
+                        <Stack.Screen
+                            name="CommunityReview"
+                            component={CommunityReviewScreen}
+                            options={{ headerShown: false }}
                         />
                     </>
                 ) : (

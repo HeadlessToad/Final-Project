@@ -7,14 +7,20 @@ from ultralytics import YOLO
 from typing import Dict, Any, List
 
 # --- 1. CONFIGURATION LOADING ---
-# Base directory is 'ml/'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Paths to shared configuration
-CLASS_MAP_PATH = os.path.join(BASE_DIR, '..', 'shared', 'class_map.json')
-MODEL_META_PATH = os.path.join(BASE_DIR, '..', 'shared', 'model_meta.json')
-MODEL_WEIGHTS_PATH = os.path.join(
-    BASE_DIR, 'train_kaggle_stable', 'weights', 'best.pt')  # Your weights file
+# In Docker: /app/shared/ and /app/weights/best.pt
+# Locally (ml/): ../shared/ and ml/weights/best.pt
+_shared_docker = os.path.join(BASE_DIR, 'shared')
+_shared_local = os.path.join(BASE_DIR, '..', 'shared')
+SHARED_DIR = _shared_docker if os.path.isdir(_shared_docker) else _shared_local
+
+CLASS_MAP_PATH = os.path.join(SHARED_DIR, 'class_map.json')
+MODEL_META_PATH = os.path.join(SHARED_DIR, 'model_meta.json')
+
+_weights_docker = os.path.join(BASE_DIR, 'weights', 'best.pt')
+_weights_local = os.path.join(BASE_DIR, 'weights', 'best.pt')
+MODEL_WEIGHTS_PATH = _weights_docker if os.path.exists(_weights_docker) else _weights_local
 
 try:
     with open(CLASS_MAP_PATH, 'r') as f:
@@ -42,7 +48,8 @@ TIPS_MAP = {
     "GLASS": "Empty, rinse, and place in the glass bin. Labels are okay.",
     "METAL": "Ensure cans are clean and dry. No sharp scrap metal.",
     "PAPER": "Keep dry and flatten before placing in the paper bin.",
-    "PLASTIC": "Empty and rinse container. If it's a bottle/jug, put the cap back on."
+    "PLASTIC": "Empty and rinse container. If it's a bottle/jug, put the cap back on.",
+    "TRASH": "This item belongs in general waste. Consider if any parts can be recycled separately."
 }
 
 # --- 2. MODEL LOADING (Global) ---
@@ -78,15 +85,16 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
     # Process the result for the first image
     r = results[0]
 
-    # The save location is typically the 'runs/detect/project/name' folder
-    # We use the path property of the result object
-    annotated_image_path = r.save_dir + '/' + os.path.basename(r.path)
-
-    # --- NEW: Encode the annotated image to Base64 ---
+    # Generate annotated image in memory (no disk I/O needed)
     try:
-        with open(annotated_image_path, "rb") as image_file:
-            encoded_image_string = base64.b64encode(
-                image_file.read()).decode('utf-8')
+        # plot() returns a numpy array with bounding boxes drawn
+        annotated_img = r.plot()
+        # Convert numpy array to PIL Image, then to bytes
+        pil_img = Image.fromarray(annotated_img)
+        buffer = io.BytesIO()
+        pil_img.save(buffer, format='JPEG', quality=85)
+        buffer.seek(0)
+        encoded_image_string = base64.b64encode(buffer.read()).decode('utf-8')
     except Exception as e:
         print(f"Error encoding annotated image: {e}")
         encoded_image_string = None
@@ -108,7 +116,8 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
     for i, box in enumerate(r.boxes):
         class_id = int(box.cls[0].item())
         confidence = float(box.conf[0].item())
-        class_name = LABELS.get(class_id, "unknown")
+        # Use model's internal class names (what's shown on annotated image)
+        class_name = MODEL.names.get(class_id, "unknown") if MODEL else "unknown"
         
         # This is required for YOLO training format
         xywhn = box.xywhn[0].tolist() # Returns [x, y, w, h] normalized 0-1
@@ -135,9 +144,9 @@ def get_classification_result(image_bytes: bytes) -> Dict[str, Any]:
     top_prediction_name = top_k_list[0][0]
     top_prediction_confidence = top_k_list[0][1]
 
-    # Build the Final Response
+    # Build the Final Response (TIPS_MAP uses uppercase keys)
     tips = TIPS_MAP.get(
-        top_prediction_name, "Sorting instructions not found. Check local guidelines.")
+        top_prediction_name.upper(), "Sorting instructions not found. Check local guidelines.")
 
     return {
         "prediction": top_prediction_name,

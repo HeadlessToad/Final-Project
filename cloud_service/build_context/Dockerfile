@@ -12,4 +12,4 @@ COPY shared ./shared
 COPY prediction_service.py .
 COPY weights ./weights
 EXPOSE 8080
-CMD ["python", "main.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "120", "main:app"]

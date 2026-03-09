@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
-import { Camera, Coins, User } from 'lucide-react-native';
+import { Camera, Coins, User, Navigation, Clock, HelpCircle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { BottomNavBar } from '../navigation/BottomNavBar';
@@ -36,13 +36,21 @@ type HomeScreenProps = NativeStackScreenProps<RootStackParamList, "Home">;
 // Flexible Interface to handle the 'class_name' field from your DB
 interface ScanItem {
   id: string;
-  class_name?: string; // 🔥 This is the missing field!
-  label?: string;       
-  classification?: string; 
-  result?: string;         
-  name?: string;           
+  class_name?: string;
+  label?: string;
+  classification?: string;
+  result?: string;
+  name?: string;
   timestamp: any;
   points?: number;
+  potential_points?: number;
+  location_verified?: boolean;
+  nearest_center?: {
+    id: number;
+    name: string;
+    latitude: number;
+    longitude: number;
+  } | null;
 }
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
@@ -129,6 +137,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   const renderRecentClassification = ({ item }: { item: ScanItem }) => {
     const displayLabel = getScanLabel(item);
+    const isVerified = item.location_verified !== false; // Default to true for legacy items
+    const displayPoints = isVerified ? (item.points || 10) : (item.potential_points || 10);
 
     return (
       <View style={styles.recentCard}>
@@ -138,9 +148,30 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             <Text style={styles.recentTitle}>{displayLabel}</Text>
             <Text style={styles.recentDate}>{formatDate(item.timestamp)}</Text>
           </View>
-          <View style={styles.recentPoints}>
-            <Coins size={16} color={COLORS.primary} />
-            <Text style={styles.recentPointsText}>+{item.points || 10}</Text>
+          <View style={styles.recentPointsContainer}>
+            {isVerified ? (
+              <View style={styles.recentPoints}>
+                <Coins size={16} color={COLORS.primary} />
+                <Text style={styles.recentPointsText}>+{displayPoints}</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.potentialPoints}>
+                  <Clock size={14} color="#FF9800" />
+                  <Text style={styles.potentialPointsText}>+{displayPoints}</Text>
+                </View>
+                {item.nearest_center && (
+                  <TouchableOpacity
+                    style={styles.navButton}
+                    onPress={() => navigation.navigate('RecyclingCenters', {
+                      focusCenter: item.nearest_center!
+                    })}
+                  >
+                    <Navigation size={14} color={COLORS.white} />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -190,6 +221,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             <Text style={styles.scanButtonText}>Scan Waste</Text>
           </TouchableOpacity>
 
+          {/* Help Us Improve Button */}
+          <TouchableOpacity
+            style={styles.helpButton}
+            onPress={() => handleNavigation('CommunityReview')}
+          >
+            <HelpCircle size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.helpButtonText}>Help Us Improve</Text>
+          </TouchableOpacity>
+
           {/* Recent Scans */}
           <View style={styles.recentContainer}>
             <View style={styles.recentHeader}>
@@ -236,8 +276,10 @@ const styles = StyleSheet.create({
   redeemButton: { backgroundColor: COLORS.white, paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20 },
   redeemButtonText: { color: COLORS.primary, fontWeight: 'bold' },
   mainContent: { padding: 20 },
-  scanButton: { backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 60, borderRadius: 15, marginBottom: 30, elevation: 4 },
+  scanButton: { backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 60, borderRadius: 15, marginBottom: 15, elevation: 4 },
   scanButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
+  helpButton: { backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 15, marginBottom: 30, borderWidth: 2, borderColor: COLORS.primary },
+  helpButtonText: { color: COLORS.primary, fontSize: 16, fontWeight: 'bold' },
   recentContainer: { paddingBottom: 20 },
   recentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.text },
@@ -248,6 +290,10 @@ const styles = StyleSheet.create({
   recentTextContainer: { flex: 1 },
   recentTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
   recentDate: { fontSize: 12, color: COLORS.onSurfaceVariant },
+  recentPointsContainer: { alignItems: 'flex-end', gap: 4 },
   recentPoints: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   recentPointsText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 16 },
+  potentialPoints: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  potentialPointsText: { color: '#FF9800', fontWeight: 'bold', fontSize: 14 },
+  navButton: { backgroundColor: COLORS.primary, padding: 6, borderRadius: 12, marginTop: 4 },
 });

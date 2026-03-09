@@ -15,7 +15,8 @@ import {
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from "firebase/auth";
-import { auth } from "../firebaseConfig";
+import { doc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -64,7 +65,10 @@ export default function LoginScreen({ navigation }: LoginProps) {
       const credential = GoogleAuthProvider.credential(id_token);
       setLoading(true);
       signInWithCredential(auth, credential)
-        .then(() => {
+        .then(async (userCredential) => {
+             // Save login timestamp to Firestore for cross-device session management
+             const userDocRef = doc(db, "users", userCredential.user.uid);
+             await updateDoc(userDocRef, { lastLoginTimestamp: Date.now() });
              // Success Toast for Google
              Toast.show({
                 type: 'success',
@@ -89,10 +93,12 @@ export default function LoginScreen({ navigation }: LoginProps) {
     setLoading(true);
     setErrorMessage(null);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-      // 🔥 THIS WAS MISSING! 
-      // This will pop up, and stay visible even as the screen switches to Home
+      // Save login timestamp to Firestore for cross-device session management
+      const userDocRef = doc(db, "users", userCredential.user.uid);
+      await updateDoc(userDocRef, { lastLoginTimestamp: Date.now() });
+
       Toast.show({
         type: 'success',
         text1: 'Welcome Back!',

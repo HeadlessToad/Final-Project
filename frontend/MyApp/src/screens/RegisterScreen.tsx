@@ -15,7 +15,8 @@ import {
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth } from "../firebaseConfig";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
 import { User, Mail, Lock } from 'lucide-react-native';
 import Toast from 'react-native-toast-message'; // 🔥 IMPORT TOAST
 
@@ -95,7 +96,11 @@ export default function RegisterScreen({ navigation }: RegisterProps) {
         displayName: fullName,
       });
 
-      // 4. Success Feedback
+      // 4. Save login timestamp to Firestore for cross-device session management
+      const userDocRef = doc(db, "users", userCredential.user.uid);
+      await setDoc(userDocRef, { lastLoginTimestamp: Date.now() }, { merge: true });
+
+      // 5. Success Feedback
       Toast.show({
         type: 'success',
         text1: 'Success! 🎉',

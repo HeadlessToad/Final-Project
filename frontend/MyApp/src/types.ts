@@ -80,7 +80,7 @@ export type RootStackParamList = {
   Home: undefined;
   Profile: undefined;
   Rewards: undefined;
-  RecyclingCenters: undefined; // Map view for nearby centers
+  RecyclingCenters: { focusCenter?: { id: number; name: string; latitude: number; longitude: number; } } | undefined; // Map view for nearby centers
 
   // --- CLASSIFICATION & SCAN FLOW ---
   ScanScreen: undefined; // The camera screen (renamed from Classify for clarity)
@@ -97,6 +97,7 @@ export type RootStackParamList = {
   PersonalDetails: undefined; // Displays editable details
   ClassificationHistory: undefined; // View all past scans
   PointsHistory: undefined; // View transactions
+  CommunityReview: undefined; // Help review pending images
 
   // --- EDITING & DETAIL ROUTES ---
   EditSingleField: {

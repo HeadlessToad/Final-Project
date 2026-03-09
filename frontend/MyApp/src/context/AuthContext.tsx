@@ -1,9 +1,13 @@
 // src/context/AuthContext.tsx
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, User, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
+
+// Session configuration - adjust this value to change session duration
+const SESSION_DURATION_HOURS = 2; // Users stay logged in for 2 hours
+const SESSION_DURATION_MS = SESSION_DURATION_HOURS * 60 * 60 * 1000;
 
 // --- NEW INTERFACE: Defines the full structure of the Firestore user document ---
 export interface UserProfile {
@@ -23,6 +27,9 @@ export interface UserProfile {
   city: string | null;
   birthDate: string | null;
   phone: string | null;
+
+  // Session Management
+  lastLoginTimestamp?: number;
 }
 
 // --- UPDATED CONTEXT TYPE: Includes the profile refresh function ---
@@ -118,12 +125,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         if (authenticatedUser) {
-          setUser(authenticatedUser);
           const userDocRef = doc(db, "users", authenticatedUser.uid);
 
-          // First check if the document exists, create if missing
-          const userDoc = await getDoc(userDocRef);
-          if (!userDoc.exists()) {
+          // Check if session has expired (using Firestore timestamp)
+          try {
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              const lastLoginTimestamp = data.lastLoginTimestamp;
+
+              if (lastLoginTimestamp) {
+                const now = Date.now();
+                const elapsed = now - lastLoginTimestamp;
+
+                if (elapsed > SESSION_DURATION_MS) {
+                  // Session expired - sign out the user
+                  console.log("Session expired, signing out user...");
+                  await signOut(auth);
+                  setUser(null);
+                  setProfile(null);
+                  setUserRole(null);
+                  setLoading(false);
+                  return; // Exit early, don't set up profile listener
+                }
+              }
+              // If no timestamp exists, user will need to log in again
+              // (timestamp is set on login/register)
+            }
+          } catch (error) {
+            console.error("Error checking session expiration:", error);
+          }
+
+          setUser(authenticatedUser);
+
+          // Re-fetch to check if the document exists, create if missing
+          const latestUserDoc = await getDoc(userDocRef);
+          if (!latestUserDoc.exists()) {
             console.log("Creating missing user profile in Firestore...");
             const initialProfile: UserProfile = {
               email: authenticatedUser.email || "N/A",

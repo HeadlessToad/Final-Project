@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
-import { Coins, Calendar, TrendingUp, ArrowLeft } from 'lucide-react-native';
+import { Coins, Calendar, TrendingUp, ArrowLeft, Clock, Navigation } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // --- FIREBASE IMPORTS ---
@@ -36,7 +36,15 @@ interface HistoryItem {
   type: string;
   date: string;
   points: number;
+  potential_points: number;
   icon: string;
+  location_verified: boolean;
+  nearest_center?: {
+    id: number;
+    name: string;
+    latitude: number;
+    longitude: number;
+  } | null;
 }
 
 // --- HELPER: Map DB Class Names to Icons/UI ---
@@ -64,17 +72,7 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
   // 1. NAVIGATION CONFIGURATION (Back Button)
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      headerShown: true,
-      headerTitle: "",
-      headerTransparent: true,
-      headerLeft: () => (
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color={COLORS.text} />
-        </TouchableOpacity>
-      ),
+      headerShown: false, // We'll use a custom header instead
     });
   }, [navigation]);
 
@@ -117,13 +115,17 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
 
         // Get Icon and clean Name
         const uiDetails = getIconForClass(data.class_name);
+        const isVerified = data.location_verified !== false; // Default to true for legacy items
 
         fetchedItems.push({
           id: doc.id,
           type: uiDetails.label,
           date: dateStr,
           points: data.points || 0,
+          potential_points: data.potential_points || data.points || 10,
           icon: uiDetails.icon,
+          location_verified: isVerified,
+          nearest_center: data.nearest_center || null,
         });
 
         pointsSum += (data.points || 0);
@@ -141,35 +143,71 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
   };
 
   // 3. RENDER SINGLE ROW
-  const HistoryItemRow = ({ item }: { item: HistoryItem }) => (
-    <View style={styles.card}>
-      <View style={styles.cardContent}>
-        <Text style={styles.itemIcon}>{item.icon}</Text>
-        <View style={styles.itemDetails}>
-          <Text style={styles.itemType}>{item.type}</Text>
-          <View style={styles.metaRow}>
-            <Calendar size={14} color={COLORS.onSurfaceVariant} style={styles.metaIcon} />
-            <Text style={styles.metaText}>{item.date}</Text>
+  const HistoryItemRow = ({ item }: { item: HistoryItem }) => {
+    const displayPoints = item.location_verified ? item.points : item.potential_points;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardContent}>
+          <Text style={styles.itemIcon}>{item.icon}</Text>
+          <View style={styles.itemDetails}>
+            <Text style={styles.itemType}>{item.type}</Text>
+            <View style={styles.metaRow}>
+              <Calendar size={14} color={COLORS.onSurfaceVariant} style={styles.metaIcon} />
+              <Text style={styles.metaText}>{item.date}</Text>
+            </View>
+          </View>
+
+          <View style={styles.pointsContainer}>
+            {item.location_verified ? (
+              <View style={styles.pointsEarned}>
+                <TrendingUp size={16} color={COLORS.primary} />
+                <Text style={styles.pointsText}>+{displayPoints}</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.potentialPoints}>
+                  <Clock size={14} color="#FF9800" />
+                  <Text style={styles.potentialPointsText}>+{displayPoints}</Text>
+                </View>
+                {item.nearest_center && (
+                  <TouchableOpacity
+                    style={styles.navButton}
+                    onPress={() => navigation.navigate('RecyclingCenters', {
+                      focusCenter: item.nearest_center!
+                    })}
+                  >
+                    <Navigation size={14} color={COLORS.white} />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
           </View>
         </View>
-
-        <View style={styles.pointsEarned}>
-          <TrendingUp size={16} color={COLORS.primary} />
-          <Text style={styles.pointsText}>+{item.points}</Text>
-        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.fullContainer}>
+      {/* Custom Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Home')}
+          style={styles.backButton}
+        >
+          <ArrowLeft size={24} color={COLORS.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Scan History</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
         {/* --- SUMMARY CARD --- */}
-        {/* marginTop added to account for transparent header */}
         <LinearGradient
           colors={[COLORS.primary, COLORS.secondary]}
-          style={[styles.summaryCard, { marginTop: Platform.OS === 'ios' ? 100 : 80 }]}
+          style={styles.summaryCard}
         >
           <View style={styles.summaryRow}>
             <View>
@@ -217,21 +255,28 @@ const styles = StyleSheet.create({
   fullContainer: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { paddingBottom: 30 },
 
-  // Navigation
+  // Custom Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: COLORS.white,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
   backButton: {
     padding: 8,
-    marginLeft: 0,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.05)',
     borderRadius: 20,
-    elevation: 2, // Shadow for Android
-    shadowColor: '#000', // Shadow for iOS
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
 
   // Summary Card
-  summaryCard: { padding: 20, marginHorizontal: 20, marginBottom: 20, borderRadius: 15 },
+  summaryCard: { padding: 20, marginHorizontal: 20, marginBottom: 20, borderRadius: 15, marginTop: 10 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   summaryLabel: { color: COLORS.white, opacity: 0.9, fontSize: 14, marginBottom: 5 },
   summaryValue: { color: COLORS.white, fontSize: 32, fontWeight: 'bold' },
@@ -257,6 +302,10 @@ const styles = StyleSheet.create({
   metaIcon: { opacity: 0.6 },
   metaText: { fontSize: 13, color: COLORS.onSurfaceVariant },
 
+  pointsContainer: { alignItems: 'flex-end', gap: 4 },
   pointsEarned: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pointsText: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
+  potentialPoints: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  potentialPointsText: { color: '#FF9800', fontWeight: 'bold', fontSize: 16 },
+  navButton: { backgroundColor: COLORS.primary, padding: 8, borderRadius: 12, marginTop: 4 },
 });
