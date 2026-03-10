@@ -1,0 +1,36 @@
+# cloudbuild.yaml — Triggered by the retrain-orchestrator Cloud Function
+# after the Kaggle notebook finishes training and the new model is confirmed
+# to be an improvement over the current production model.
+#
+# This runs entirely on GCP Cloud Build VMs — nothing runs locally.
+# Cloud Build checks out the latest code from GitHub, downloads the new
+# weights from GCS (replacing the old weights in the build context),
+# then rebuilds and redeploys the Cloud Run service.
+
+steps:
+  # Step 1: Download new trained weights from GCS into the build workspace.
+  # This runs on a GCP VM and writes the file to the build workspace disk.
+  # It does NOT touch your local machine.
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args:
+      - cp
+      - gs://retrain_smart_waste_model/models/best_latest.pt
+      - cloud_service/build_context/weights/best.pt
+
+  # Step 2: Rebuild the Docker image with the new weights and deploy to Cloud Run.
+  # --source points to the directory Cloud Build just checked out from GitHub.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - gcloud
+      - run
+      - deploy
+      - waste-classifier-eu
+      - --source=cloud_service/build_context
+      - --region=europe-west1
+      - --project=smart-waste-sorter
+      - --platform=managed
+      - --allow-unauthenticated
+      - --memory=2Gi
+
+options:
+  logging: CLOUD_LOGGING_ONLY
