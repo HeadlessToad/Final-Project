@@ -13,3 +13,6 @@ Thumbs.db
 # Ignore environment variable files
 *.json
 node_modules
+
+# Ignore API keys and secrets
+KaggleAPI.txt
