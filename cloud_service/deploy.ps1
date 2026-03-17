@@ -17,7 +17,7 @@ gcloud run deploy $SERVICE_NAME `
     --region $REGION `
     --platform managed `
     --allow-unauthenticated `
-    --memory 1Gi
+    --memory 2Gi
 
 Write-Host "✅ Deployment Complete!"
 Write-Host "Use the URL provided above in your backend configuration (CLOUD_MODEL_URL)."

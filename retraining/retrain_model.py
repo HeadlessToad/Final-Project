@@ -225,6 +225,10 @@ def main():
                         help="Number of layers to freeze")
     parser.add_argument("--device", type=str, default="auto",
                         help="Device: 'auto', 'cpu', '0' (GPU)")
+    parser.add_argument("--min-samples", type=int, default=1000,
+                        help="Minimum training samples required (default: 1000)")
+    parser.add_argument("--skip-threshold", action="store_true",
+                        help="Skip minimum sample count check (for local testing)")
 
     args = parser.parse_args()
 
@@ -253,6 +257,15 @@ def main():
     print(f"  Train images: {validation['train_images']}")
     print(f"  Train labels: {validation['train_labels']}")
     print(f"  Val images: {validation['val_images']}")
+
+    # Check minimum sample threshold
+    total_samples = validation['train_images']
+    if not args.skip_threshold and total_samples < args.min_samples:
+        print(f"\nError: Only {total_samples} training samples found, {args.min_samples} required.")
+        print("Use --skip-threshold to override for local testing.")
+        return
+    elif args.skip_threshold and total_samples < args.min_samples:
+        print(f"\nWarning: Only {total_samples} samples (threshold bypassed with --skip-threshold).")
 
     # Create dataset.yaml
     dataset_yaml = create_dataset_yaml(dataset_path)
