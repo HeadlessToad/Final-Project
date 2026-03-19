@@ -1,4 +1,10 @@
 // screens/PointsHistoryScreen.tsx
+// ============================================================================
+// COMPONENT PURPOSE:
+// Displays the user's purchase history and lifetime gamification statistics.
+// It shows the total points earned, points redeemed, and a detailed list of
+// all rewards the user has purchased, including their delivery status.
+// ============================================================================
 
 import React, { useState, useCallback } from 'react';
 import { 
@@ -21,6 +27,7 @@ import { db } from "../firebaseConfig";
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 
+// Centralized color palette
 const COLORS = {
   primary: '#4CAF50', 
   secondary: '#8BC34A', 
@@ -30,12 +37,13 @@ const COLORS = {
   onSurfaceVariant: '#616161', 
   outline: '#E0E0E0',
   
+  // Custom semantic colors for gamification UI
   earnedGreen: '#00C853', 
   redeemedOrange: '#FF9800', 
   lightGreenBackground: '#E8F5E9', 
   lightOrangeBackground: '#FFF3E0',
   
-  // Status Colors
+  // Status Colors (Pending vs. Delivered)
   pendingText: '#F57C00',
   pendingBg: '#FFF3E0',
   deliveredText: '#2E7D32',
@@ -43,28 +51,37 @@ const COLORS = {
 };
 
 // --- TYPES ---
+// Defines the structure of a purchased reward record fetched from Firestore
 interface PurchaseTransaction {
     id: string;
     productName: string; 
     pointsPaid: number;  
     purchaseDate: string; 
-    status: string; // <--- Added Status Field
+    status: string; // E.g., 'PENDING_DELIVERY' or 'DELIVERED'
 }
 
 type PointsHistoryProps = NativeStackScreenProps<RootStackParamList, "PointsHistory">;
 
 export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) {
+    // --------------------------------------------------------------------------
+    // STATE & GLOBAL CONTEXT
+    // --------------------------------------------------------------------------
     const { user, profile, refreshProfile } = useAuth();
     const [history, setHistory] = useState<PurchaseTransaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     // --- 1. Calculate Stats from User Profile ---
+    // 'points' is the current available balance. 'rewardsRedeemed' is how many points they've spent.
+    // Total lifetime earned is the sum of what they currently have plus what they've already spent.
     const totalRedeemed = Number(profile?.rewardsRedeemed || 0);
     const currentBalance = Number(profile?.points || 0);
     const totalEarned = currentBalance + totalRedeemed;
 
-    // --- 2. Fetch Purchase History from Firestore ---
+    // --------------------------------------------------------------------------
+    // DATA FETCHING LOGIC
+    // --------------------------------------------------------------------------
+    // Retrieves all purchase records for the current user from the 'purchase_history' collection
     const fetchHistory = async () => {
         if (!user) return;
         
@@ -77,6 +94,7 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
             const querySnapshot = await getDocs(q);
             const fetchedData: PurchaseTransaction[] = [];
 
+            // Parse raw Firestore documents into our typed array
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 fetchedData.push({
@@ -84,11 +102,11 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
                     productName: data.productName,
                     pointsPaid: data.pointsPaid,
                     purchaseDate: data.purchaseDate,
-                    status: data.status || 'DELIVERED', // Default to DELIVERED if field is missing
+                    status: data.status || 'DELIVERED', // Default to DELIVERED if legacy data is missing the field
                 });
             });
 
-            // Sort newest first
+            // Sort newest transactions first based on the ISO date string
             fetchedData.sort((a, b) => {
                 const dateA = new Date(a.purchaseDate).getTime();
                 const dateB = new Date(b.purchaseDate).getTime();
@@ -104,6 +122,11 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
         }
     };
 
+    // --------------------------------------------------------------------------
+    // LIFECYCLE HOOKS
+    // --------------------------------------------------------------------------
+    // useFocusEffect runs every time the user navigates back to this screen.
+    // This ensures that if they just bought an item, the history is immediately updated.
     useFocusEffect(
         useCallback(() => {
             fetchHistory();
@@ -111,13 +134,17 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
         }, [user])
     );
 
+    // Handler for the "Pull to Refresh" gesture on the ScrollView
     const onRefresh = () => {
         setRefreshing(true);
         fetchHistory();
         refreshProfile();
     };
 
-    // --- Helper: Format Date ---
+    // --------------------------------------------------------------------------
+    // HELPER FUNCTIONS
+    // --------------------------------------------------------------------------
+    // Converts raw ISO strings from DB into a human-readable format (e.g., "Jan 15, 2026, 02:30 PM")
     const formatDate = (isoString: string) => {
         if (!isoString) return "";
         const date = new Date(isoString);
@@ -127,9 +154,12 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
         });
     };
 
-    // --- Transaction Row Component ---
+    // --------------------------------------------------------------------------
+    // RENDERERS
+    // --------------------------------------------------------------------------
+    // Sub-component that renders a single item in the FlatList
     const renderItem = ({ item }: { item: PurchaseTransaction }) => {
-        // Determine Status Style
+        // Determine Status Style dynamically based on the transaction status
         const isPending = item.status === 'PENDING_DELIVERY';
         const statusLabel = isPending ? 'Pending' : 'Delivered';
         const statusColor = isPending ? COLORS.pendingText : COLORS.deliveredText;
@@ -138,12 +168,12 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
 
         return (
             <View style={styles.transactionRow}>
-                {/* Icon Circle */}
+                {/* Left: Icon Circle */}
                 <View style={[styles.transactionIconCircle, { backgroundColor: COLORS.lightOrangeBackground }]}>
                     <ShoppingBag size={20} color={COLORS.redeemedOrange} />
                 </View>
                 
-                {/* Details Column */}
+                {/* Middle: Details Column (Name, Date, Status) */}
                 <View style={styles.transactionDetails}>
                     <Text style={styles.descriptionText}>{item.productName}</Text>
                     
@@ -160,7 +190,7 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
                     </View>
                 </View>
                 
-                {/* Price */}
+                {/* Right: Points Paid (Price) */}
                 <Text style={[styles.pointsValueText, { color: COLORS.redeemedOrange }]}>
                     -{item.pointsPaid}
                 </Text>
@@ -168,6 +198,9 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
         );
     };
 
+    // --------------------------------------------------------------------------
+    // MAIN RENDER
+    // --------------------------------------------------------------------------
     return (
         <View style={styles.fullContainer}>
             <ScrollView 
@@ -177,7 +210,7 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
                 {/* --- 1. Summary Cards (Top Section) --- */}
                 <View style={styles.summaryContainer}>
                     
-                    {/* Earned Card */}
+                    {/* Lifetime Earned Card (Green) */}
                     <LinearGradient
                         colors={[COLORS.lightGreenBackground, COLORS.white]}
                         start={{ x: 0, y: 0.5 }}
@@ -196,7 +229,7 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
                         </View>
                     </LinearGradient>
 
-                    {/* Redeemed Card */}
+                    {/* Total Redeemed Card (Orange) */}
                     <LinearGradient
                         colors={[COLORS.lightOrangeBackground, COLORS.white]}
                         start={{ x: 0, y: 0.5 }}
@@ -223,13 +256,15 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
                     {loading ? (
                         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
                     ) : history.length === 0 ? (
+                        // Empty state if user hasn't bought anything yet
                         <Text style={styles.emptyText}>No rewards redeemed yet.</Text>
                     ) : (
+                        // Render the array of transaction records
                         <FlatList
                             data={history}
                             keyExtractor={item => item.id}
                             renderItem={renderItem}
-                            scrollEnabled={false}
+                            scrollEnabled={false} // Disabled since it's nested inside a ScrollView
                         />
                     )}
                 </View>
@@ -238,6 +273,9 @@ export default function PointsHistoryScreen({ navigation }: PointsHistoryProps) 
     );
 }
 
+// ============================================================================
+// STYLESHEET
+// ============================================================================
 const styles = StyleSheet.create({
   fullContainer: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { paddingBottom: 30, paddingHorizontal: 20 }, 
@@ -336,7 +374,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.onSurfaceVariant,
   },
-  // New Status Badge Styles
+  
+  // Status Badge Styles
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',

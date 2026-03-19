@@ -1,4 +1,11 @@
 // screens/RecyclingCentersScreen.tsx
+// ============================================================================
+// COMPONENT PURPOSE:
+// An interactive Map and List view showing local recycling centers. 
+// It calculates the user's distance to each center, allows filtering by waste 
+// category, and listens to real-time community reports from Firestore.
+// If a center is reported missing 3+ times, it is marked as "Blocked".
+// ============================================================================
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
@@ -42,18 +49,20 @@ import {
   increment,
   getDoc,
 } from "firebase/firestore";
-import Toast from "react-native-toast-message"; // 🔥 IMPORT TOAST
+import Toast from "react-native-toast-message";
 
-// --- HELPER: Distance Calculation ---
-// Explanation: This uses the Haversine formula to calculate the distance
-// between two points on a sphere (Earth) in Kilometers.
+// ----------------------------------------------------------------------------
+// HELPER FUNCTIONS
+// ----------------------------------------------------------------------------
+// Explanation: This uses the Haversine formula to calculate the "as the crow flies" 
+// distance between two GPS coordinates on a sphere (Earth) in Kilometers.
 const getDistance = (
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number,
 ) => {
-  const R = 6371;
+  const R = 6371; // Earth's radius in km
   const dLat = deg2rad(lat2 - lat1);
   const dLon = deg2rad(lon2 - lon1);
   const a =
@@ -67,6 +76,7 @@ const getDistance = (
 };
 const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
+// Centralized color palette
 const COLORS = {
   primary: "#4CAF50",
   background: "#F9F9F9",
@@ -89,32 +99,35 @@ export default function RecyclingCentersScreen({
   navigation,
   route,
 }: RecyclingCentersProps) {
-  const [location, setLocation] = useState<Location.LocationObject | null>(
-    null,
-  );
+  // --------------------------------------------------------------------------
+  // STATE MANAGEMENT
+  // --------------------------------------------------------------------------
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<MapView>(null);
 
-  // Get focusCenter from navigation params (passed from ClassificationResultScreen)
+  // If the user was navigated here from the Classification Result screen, 
+  // this holds the specific center they were directed to.
   const focusCenter = route.params?.focusCenter;
 
   // Category Filter State
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
-  // Firebase Realtime Data: Stores strike counts like { 101: 2, 102: 5 }
-  const [reportCounts, setReportCounts] = useState<{ [key: number]: number }>(
-    {},
-  );
+  // Firebase Realtime Data: Stores strike counts for missing centers (e.g., { 101: 2, 102: 5 })
+  const [reportCounts, setReportCounts] = useState<{ [key: number]: number }>({});
 
-  // Selected center for floating card
+  // Holds the center currently selected by the user (shows the floating card)
   const [selectedCenter, setSelectedCenter] = useState<Center | null>(null);
 
-  // State for collapsing the list
+  // State for toggling between the split map/list view and the full map view
   const [isListCollapsed, setIsListCollapsed] = useState(false);
 
+  // --------------------------------------------------------------------------
+  // DATA PROCESSING
+  // --------------------------------------------------------------------------
   // 1. EXTRACT CATEGORIES (Memoized)
-  // Explanation: useMemo ensures we only calculate this list ONCE when the app loads,
-  // instead of recalculating every time the screen updates (performance boost).
+  // useMemo ensures we only extract the unique categories from REAL_CENTERS ONCE 
+  // when the app loads, rather than recalculating on every re-render.
   const allCategories = useMemo(() => {
     const types = new Set<string>();
     REAL_CENTERS.forEach((center) => {
@@ -124,8 +137,8 @@ export default function RecyclingCentersScreen({
   }, []);
 
   // 2. FILTER & SORT LOGIC
-  // Explanation: This is the brain of the list. It takes the raw data,
-  // checks the category filter, and then sorts the remaining items by distance.
+  // Takes the raw JSON data, filters it based on the selected chip (e.g., "Plastic"),
+  // and then sorts the remaining items so the closest ones appear at the top of the list.
   const displayedCenters = useMemo(() => {
     if (!location) return [];
 
@@ -142,13 +155,17 @@ export default function RecyclingCentersScreen({
       const distB = parseFloat(
         getDistance(userLat, userLon, b.latitude, b.longitude),
       );
-      return distA - distB;
+      return distA - distB; // Sort ascending (closest first)
     });
   }, [location, selectedCategory]);
 
-  // --- 3. FIREBASE LISTENER ---
-  // Explanation: This sets up a "Live Connection" to Firestore.
-  // Whenever someone reports a center, 'onSnapshot' runs and updates the Red Markers immediately.
+  // --------------------------------------------------------------------------
+  // EFFECTS & LISTENERS
+  // --------------------------------------------------------------------------
+  
+  // --- 3. FIREBASE LISTENER (COMMUNITY REPORTS) ---
+  // Sets up a real-time listener to Firestore for EVERY center.
+  // If someone reports a center as missing, the map updates immediately for everyone.
   useEffect(() => {
     const unsubscribeCallbacks: (() => void)[] = [];
     REAL_CENTERS.forEach((center) => {
@@ -164,21 +181,25 @@ export default function RecyclingCentersScreen({
       });
       unsubscribeCallbacks.push(unsub);
     });
+    
+    // Cleanup: Remove all listeners when the component unmounts
     return () => unsubscribeCallbacks.forEach((unsub) => unsub());
   }, []);
 
-  // --- 3.5 FOCUS ON CENTER (when navigated from ClassificationResultScreen) ---
+  // --- 3.5 FOCUS ON SPECIFIC CENTER ---
+  // If navigating from ClassificationResultScreen with a target center, 
+  // animate the map to zoom in on that center and open its floating card.
   useEffect(() => {
     if (focusCenter && mapRef.current && !loading) {
-      // Animate map to the focused center
+      // Animate map
       mapRef.current.animateToRegion({
         latitude: focusCenter.latitude,
         longitude: focusCenter.longitude,
-        latitudeDelta: 0.01,  // Zoom in close
+        latitudeDelta: 0.01,  // Zoom in tight
         longitudeDelta: 0.01,
       }, 1000);
 
-      // Find the full center data and select it
+      // Find the full center data locally to populate the card
       const fullCenter = REAL_CENTERS.find(c => c.id === focusCenter.id);
       if (fullCenter) {
         setSelectedCenter(fullCenter);
@@ -186,118 +207,8 @@ export default function RecyclingCentersScreen({
     }
   }, [focusCenter, loading]);
 
-  // --- 4. REPORT HANDLER ---
-  const handleReport = (
-    id: number,
-    centerName: string,
-    centerAddress: string,
-    centerLat: number,
-    centerLng: number,
-  ) => {
-    // We keep Alert here because we WANT to interrupt the user to confirm.
-    Alert.alert("Report Issue", `Is ${centerName} missing or damaged?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Report as Missing",
-        onPress: async () => {
-          try {
-            const docRef = doc(db, "reports", id.toString());
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-              await updateDoc(docRef, { count: increment(1) });
-            } else {
-              await setDoc(docRef, {
-                id: id,
-                count: 1,
-                name: centerName,
-                address: centerAddress,
-                coordinates: { latitude: centerLat, longitude: centerLng },
-                firstReportedAt: new Date().toISOString(),
-              });
-            }
-
-            // 🔥 TOAST SUCCESS instead of Alert
-            Toast.show({
-              type: "success",
-              text1: "Report Sent",
-              text2: "Thank you for helping the community! 🌍",
-              position: "top",
-              topOffset: 60,
-            });
-          } catch (error) {
-            console.error("Error reporting:", error);
-            // 🔥 TOAST ERROR
-            Toast.show({
-              type: "error",
-              text1: "Error",
-              text2: "Could not send report. Try again.",
-            });
-          }
-        },
-        style: "destructive",
-      },
-    ]);
-  };
-
-  const handleNavigation = (id: number, lat: number, lng: number) => {
-    const strikes = reportCounts[id] || 0;
-
-    // Check if blocked (3 strikes)
-    if (strikes >= 3) {
-      // 🔥 TOAST ERROR instead of Alert
-      Toast.show({
-        type: "error",
-        text1: "Navigation Disabled",
-        text2: "This center has been reported missing by the community.",
-        position: "top",
-        topOffset: 60,
-      });
-      return;
-    }
-
-    // Open Google Maps
-    Linking.openURL(
-      `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
-    );
-  };
-
-  const openStreetView = (lat: number, lng: number) => {
-    Linking.openURL(
-      `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}&layer=c&cbll=${lat},${lng}`,
-    );
-  };
-
-  // Handler for marker press - shows detail view and collapses list
-  const handleMarkerPress = (center: Center) => {
-    setSelectedCenter(center);
-    setIsListCollapsed(true);
-  };
-
-  // Handler for closing card - clears selection and shows list
-  const handleCloseCard = () => {
-    setSelectedCenter(null);
-    setIsListCollapsed(false);
-  };
-
-  // Handle hardware back button/gesture
-  useEffect(() => {
-    const onBackPress = () => {
-      if (selectedCenter) {
-        handleCloseCard();
-        return true; // Prevent default back behavior
-      }
-      return false; // Allow normal back navigation
-    };
-
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      onBackPress,
-    );
-    return () => subscription.remove();
-  }, [selectedCenter]);
-
   // --- 5. LOCATION SETUP ---
+  // Requests GPS permissions and gets the user's current location on mount.
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -316,13 +227,136 @@ export default function RecyclingCentersScreen({
     })();
   }, []);
 
+  // Handle hardware back button (Android) or swipe back (iOS).
+  // If a floating card is open, close it first instead of leaving the screen.
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedCenter) {
+        handleCloseCard();
+        return true; // Prevent default back behavior
+      }
+      return false; // Allow normal back navigation
+    };
+
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      onBackPress,
+    );
+    return () => subscription.remove();
+  }, [selectedCenter]);
+
+
+  // --------------------------------------------------------------------------
+  // HANDLERS
+  // --------------------------------------------------------------------------
+
+  // --- 4. REPORT HANDLER ---
+  // Submits a "Missing/Damaged" report to Firestore.
+  // 3 reports = blocked (disabled navigation).
+  const handleReport = (
+    id: number,
+    centerName: string,
+    centerAddress: string,
+    centerLat: number,
+    centerLng: number,
+  ) => {
+    // Keep Alert here because we WANT to interrupt the user to confirm a destructive action.
+    Alert.alert("Report Issue", `Is ${centerName} missing or damaged?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Report as Missing",
+        onPress: async () => {
+          try {
+            const docRef = doc(db, "reports", id.toString());
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+              // Increment the strike count
+              await updateDoc(docRef, { count: increment(1) });
+            } else {
+              // Create the first report for this center
+              await setDoc(docRef, {
+                id: id,
+                count: 1,
+                name: centerName,
+                address: centerAddress,
+                coordinates: { latitude: centerLat, longitude: centerLng },
+                firstReportedAt: new Date().toISOString(),
+              });
+            }
+
+            Toast.show({
+              type: "success",
+              text1: "Report Sent",
+              text2: "Thank you for helping the community! 🌍",
+              position: "top",
+              topOffset: 60,
+            });
+          } catch (error) {
+            console.error("Error reporting:", error);
+            Toast.show({
+              type: "error",
+              text1: "Error",
+              text2: "Could not send report. Try again.",
+            });
+          }
+        },
+        style: "destructive",
+      },
+    ]);
+  };
+
+  // Opens external Google Maps app or web browser for driving directions
+  const handleNavigation = (id: number, lat: number, lng: number) => {
+    const strikes = reportCounts[id] || 0;
+
+    // Prevent navigation if the community marked it as missing (3 strikes)
+    if (strikes >= 3) {
+      Toast.show({
+        type: "error",
+        text1: "Navigation Disabled",
+        text2: "This center has been reported missing by the community.",
+        position: "top",
+        topOffset: 60,
+      });
+      return;
+    }
+
+    Linking.openURL(
+      `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+    );
+  };
+
+  // Opens external Google Maps Street View
+  const openStreetView = (lat: number, lng: number) => {
+    Linking.openURL(
+      `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}&layer=c&cbll=${lat},${lng}`,
+    );
+  };
+
+  // Handler for tapping a pin on the map
+  const handleMarkerPress = (center: Center) => {
+    setSelectedCenter(center);
+    setIsListCollapsed(true); // Maximize the map view
+  };
+
+  // Handler for closing the floating card
+  const handleCloseCard = () => {
+    setSelectedCenter(null);
+    setIsListCollapsed(false); // Restore the split view
+  };
+
+  // --------------------------------------------------------------------------
+  // MAIN RENDER
+  // --------------------------------------------------------------------------
   return (
     <View style={styles.fullContainer}>
+      
       {/* --- MAP SECTION --- */}
       <View
         style={[
           styles.mapContainer,
-          isListCollapsed && styles.mapContainerExpanded,
+          isListCollapsed && styles.mapContainerExpanded, // Expands map if list is collapsed
         ]}
       >
         {loading || !location ? (
@@ -343,9 +377,11 @@ export default function RecyclingCentersScreen({
               longitudeDelta: 0.1,
             }}
           >
+            {/* Render all center pins */}
             {displayedCenters.map((center) => {
               const isBlocked = (reportCounts[center.id] || 0) >= 3;
               const isSelected = selectedCenter?.id === center.id;
+              
               return (
                 <Marker
                   key={center.id}
@@ -353,10 +389,11 @@ export default function RecyclingCentersScreen({
                     latitude: center.latitude,
                     longitude: center.longitude,
                   }}
-                  opacity={isBlocked ? 0.5 : 1}
+                  opacity={isBlocked ? 0.5 : 1} // Fade out blocked centers
                   pinColor={isSelected ? "blue" : isBlocked ? "grey" : "red"}
                   onPress={() => handleMarkerPress(center)}
                 >
+                  {/* Tooltip shown when tapping a marker before it triggers full selection */}
                   <Callout
                     tooltip
                     onPress={() =>
@@ -384,7 +421,8 @@ export default function RecyclingCentersScreen({
           </MapView>
         )}
 
-        {/* --- FLOATING DETAIL CARD (when a center is selected) --- */}
+        {/* --- FLOATING DETAIL CARD --- */}
+        {/* Shown overlaid on the map when a specific center is selected */}
         {selectedCenter &&
           (() => {
             const item = selectedCenter;
@@ -414,6 +452,7 @@ export default function RecyclingCentersScreen({
                     isBlocked && styles.disabledCard,
                   ]}
                 >
+                  {/* Card Header (Clickable for Navigation) */}
                   <TouchableOpacity
                     style={styles.cardHeader}
                     onPress={() =>
@@ -461,6 +500,7 @@ export default function RecyclingCentersScreen({
                     </View>
                   </TouchableOpacity>
 
+                  {/* Card Actions (Drive, Photo, Report) */}
                   <View style={styles.actionRow}>
                     <TouchableOpacity
                       style={styles.actionButton}
@@ -528,14 +568,15 @@ export default function RecyclingCentersScreen({
           })()}
       </View>
 
-      {/* --- LIST SECTION (collapsible) --- */}
+      {/* --- BOTTOM LIST SECTION --- */}
+      {/* Contains Category Chips and the FlatList of all nearby centers */}
       <View
         style={[
           styles.listContainer,
           isListCollapsed && styles.listContainerCollapsed,
         ]}
       >
-        {/* Collapse/Expand Toggle */}
+        {/* Collapse/Expand Handle Toggle */}
         <TouchableOpacity
           style={[
             styles.collapseToggle,
@@ -565,7 +606,7 @@ export default function RecyclingCentersScreen({
               </Text>
             </View>
 
-            {/* Filter Chips */}
+            {/* Filter Chips (Horizontal Scroll) */}
             <View style={styles.filterContainer}>
               <ScrollView
                 horizontal
@@ -594,6 +635,7 @@ export default function RecyclingCentersScreen({
               </ScrollView>
             </View>
 
+            {/* List of centers */}
             <FlatList
               data={displayedCenters}
               keyExtractor={(item) => item.id.toString()}
@@ -747,11 +789,15 @@ export default function RecyclingCentersScreen({
         )}
       </View>
 
+      {/* Global Bottom Navigation */}
       <BottomNavBar currentRoute="RecyclingCenters" />
     </View>
   );
 }
 
+// ============================================================================
+// STYLESHEET
+// ============================================================================
 const styles = StyleSheet.create({
   fullContainer: { flex: 1, backgroundColor: COLORS.background },
   mapContainer: { height: "35%", width: "100%", position: "relative" },
@@ -865,6 +911,7 @@ const styles = StyleSheet.create({
   listTitle: { fontSize: 20, fontWeight: "bold", color: COLORS.text },
   resultCount: { fontSize: 12, color: COLORS.onSurfaceVariant },
 
+  // Filter Chips
   filterContainer: { marginBottom: 15, height: 40 },
   chip: {
     paddingHorizontal: 16,
@@ -883,6 +930,7 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, color: COLORS.onSurfaceVariant },
   chipTextActive: { color: COLORS.primary, fontWeight: "bold" },
 
+  // List Cards
   centerCard: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
@@ -910,6 +958,8 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginTop: 2,
   },
+  
+  // Action Buttons row inside cards
   actionRow: {
     flexDirection: "row",
     borderTopWidth: 1,

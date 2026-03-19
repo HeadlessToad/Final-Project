@@ -1,4 +1,11 @@
 // screens/ClassificationHistoryScreen.tsx
+// ============================================================================
+// COMPONENT PURPOSE:
+// This screen fetches and displays the user's history of scanned waste items
+// from Firestore. It shows the classification type, date, points earned, 
+// and whether the location was verified. It also includes a summary card 
+// of total scans and points.
+// ============================================================================
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -21,6 +28,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getFirestore, collection, query, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
+// Centralized color palette for consistent UI styling
 const COLORS = {
   primary: '#4CAF50',
   secondary: '#8BC34A',
@@ -31,6 +39,7 @@ const COLORS = {
 };
 
 // --- DATA TYPES ---
+// Defines the structure of a single scan history record used in the UI
 interface HistoryItem {
   id: string;
   type: string;
@@ -48,8 +57,10 @@ interface HistoryItem {
 }
 
 // --- HELPER: Map DB Class Names to Icons/UI ---
+// Translates the raw classification string from the database into a user-friendly
+// label and an emoji icon for the UI.
 const getIconForClass = (className: string) => {
-  // Safety check if className is undefined
+  // Safety check if className is undefined or null
   const name = className ? className.toUpperCase() : "UNKNOWN";
 
   if (name.includes('PLASTIC')) return { icon: '🧴', label: 'Plastic' };
@@ -65,22 +76,28 @@ const getIconForClass = (className: string) => {
 type ClassificationHistoryProps = NativeStackScreenProps<RootStackParamList, "ClassificationHistory">;
 
 export default function ClassificationHistoryScreen({ navigation }: ClassificationHistoryProps) {
+  // --------------------------------------------------------------------------
+  // STATE MANAGEMENT
+  // --------------------------------------------------------------------------
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalPoints, setTotalPoints] = useState(0);
 
   // 1. NAVIGATION CONFIGURATION (Back Button)
+  // Hide the default React Navigation header so we can use our custom one below
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      headerShown: false, // We'll use a custom header instead
+      headerShown: false, 
     });
   }, [navigation]);
 
   // 2. FETCH DATA ON LOAD
+  // Triggers the Firestore data fetch when the component mounts
   useEffect(() => {
     fetchHistory();
   }, []);
 
+  // Fetches the user's scan history from the 'scans/{userId}/results' subcollection
   const fetchHistory = async () => {
     const auth = getAuth();
     const db = getFirestore();
@@ -93,7 +110,7 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
     }
 
     try {
-      // Query: scans -> userId -> results (ordered by timestamp)
+      // Query: scans -> userId -> results (ordered by timestamp, newest first)
       const q = query(
         collection(db, "scans", user.uid, "results"),
         orderBy("timestamp", "desc")
@@ -103,19 +120,21 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
       const fetchedItems: HistoryItem[] = [];
       let pointsSum = 0;
 
+      // Loop through all documents and format them for the UI
       querySnapshot.forEach((doc) => {
         const data = doc.data();
 
-        // Format Date (Handle Firebase Timestamp or JS Date)
+        // Format Date (Handle both Firebase Timestamp objects and standard JS Dates)
         let dateStr = "Unknown Date";
         if (data.timestamp) {
           const dateObj = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp);
           dateStr = dateObj.toLocaleDateString() + ' - ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
-        // Get Icon and clean Name
+        // Get Icon and clean Name using our helper function
         const uiDetails = getIconForClass(data.class_name);
-        const isVerified = data.location_verified !== false; // Default to true for legacy items
+        // Default to true for legacy items that might not have this field
+        const isVerified = data.location_verified !== false; 
 
         fetchedItems.push({
           id: doc.id,
@@ -128,6 +147,7 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
           nearest_center: data.nearest_center || null,
         });
 
+        // Accumulate total points earned across all history items
         pointsSum += (data.points || 0);
       });
 
@@ -143,13 +163,18 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
   };
 
   // 3. RENDER SINGLE ROW
+  // Sub-component to render a single scan record in the FlatList
   const HistoryItemRow = ({ item }: { item: HistoryItem }) => {
+    // If location is verified, show actual points earned. Otherwise, show potential points.
     const displayPoints = item.location_verified ? item.points : item.potential_points;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardContent}>
+          {/* Left: Emoji Icon */}
           <Text style={styles.itemIcon}>{item.icon}</Text>
+          
+          {/* Middle: Text Details */}
           <View style={styles.itemDetails}>
             <Text style={styles.itemType}>{item.type}</Text>
             <View style={styles.metaRow}>
@@ -158,18 +183,22 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
             </View>
           </View>
 
+          {/* Right: Points & Status */}
           <View style={styles.pointsContainer}>
             {item.location_verified ? (
+              // User was at a recycling center -> Points earned (Green)
               <View style={styles.pointsEarned}>
                 <TrendingUp size={16} color={COLORS.primary} />
                 <Text style={styles.pointsText}>+{displayPoints}</Text>
               </View>
             ) : (
+              // User was NOT at a recycling center -> Potential points (Orange) + Nav button
               <>
                 <View style={styles.potentialPoints}>
                   <Clock size={14} color="#FF9800" />
                   <Text style={styles.potentialPointsText}>+{displayPoints}</Text>
                 </View>
+                {/* If the DB saved a nearest center, provide a button to navigate there */}
                 {item.nearest_center && (
                   <TouchableOpacity
                     style={styles.navButton}
@@ -188,9 +217,12 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
     );
   };
 
+  // --------------------------------------------------------------------------
+  // MAIN RENDER
+  // --------------------------------------------------------------------------
   return (
     <View style={styles.fullContainer}>
-      {/* Custom Header */}
+      {/* Custom Header with Back Button */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.navigate('Home')}
@@ -199,12 +231,14 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
           <ArrowLeft size={24} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Scan History</Text>
+        {/* Empty view to balance the flex space with the back button */}
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
         {/* --- SUMMARY CARD --- */}
+        {/* Displays total scans and accumulated points using a nice gradient background */}
         <LinearGradient
           colors={[COLORS.primary, COLORS.secondary]}
           style={styles.summaryCard}
@@ -229,18 +263,21 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
           <Text style={styles.listTitle}>Recent Activity</Text>
 
           {loading ? (
+            // Show spinner while fetching data from Firestore
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
           ) : historyItems.length === 0 ? (
+            // Show empty state if the user hasn't scanned anything yet
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No scans yet.</Text>
               <Text style={styles.emptySubText}>Start scanning waste to earn points!</Text>
             </View>
           ) : (
+            // Render the list of history items
             <FlatList
               data={historyItems}
               keyExtractor={item => item.id}
               renderItem={({ item }) => <HistoryItemRow item={item} />}
-              scrollEnabled={false} // Since we are inside a ScrollView
+              scrollEnabled={false} // Disabled because it's wrapped inside a ScrollView
               ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
             />
           )}
@@ -251,6 +288,9 @@ export default function ClassificationHistoryScreen({ navigation }: Classificati
   );
 }
 
+// ============================================================================
+// STYLESHEET
+// ============================================================================
 const styles = StyleSheet.create({
   fullContainer: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { paddingBottom: 30 },
@@ -261,6 +301,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 20,
+    // Adjust top padding for iOS notch / Android status bar
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     backgroundColor: COLORS.white,
   },
@@ -292,7 +333,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 18, fontWeight: 'bold', color: COLORS.onSurfaceVariant },
   emptySubText: { fontSize: 14, color: COLORS.onSurfaceVariant, marginTop: 5 },
 
-  // Card Item
+  // Card Item (Individual Row)
   card: { backgroundColor: COLORS.white, borderRadius: 12, elevation: 2, padding: 5, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
   cardContent: { flexDirection: 'row', alignItems: 'center', padding: 15, gap: 15 },
   itemIcon: { fontSize: 30 },
@@ -302,6 +343,7 @@ const styles = StyleSheet.create({
   metaIcon: { opacity: 0.6 },
   metaText: { fontSize: 13, color: COLORS.onSurfaceVariant },
 
+  // Points UI inside Card
   pointsContainer: { alignItems: 'flex-end', gap: 4 },
   pointsEarned: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pointsText: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },

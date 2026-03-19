@@ -1,6 +1,10 @@
 // screens/CommunityReviewScreen.tsx
-// Community review screen — users draw bounding boxes on unlabeled images
-// to generate YOLO training data from scratch.
+// ============================================================================
+// COMPONENT PURPOSE:
+// This is the Community Review Screen. Here, users can help train the ML model
+// by looking at "pending" (unlabeled) images, drawing bounding boxes around 
+// waste items, and assigning categories. This generates fresh YOLO training data.
+// ============================================================================
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -25,6 +29,7 @@ import { getAuth } from 'firebase/auth';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../context/AuthContext';
 
+// Centralized color palette
 const COLORS = {
   primary: '#4CAF50',
   secondary: '#8BC34A',
@@ -34,7 +39,8 @@ const COLORS = {
   onSurfaceVariant: '#616161',
 };
 
-// Waste categories matching the model's class names
+// Waste categories matching the Python model's expected class names.
+// Used for displaying the selection modal and coloring the drawn boxes.
 const WASTE_CATEGORIES = [
   { id: 'cardboard', label: 'Cardboard', icon: '📦', color: '#FF9800' },
   { id: 'glass',     label: 'Glass',     icon: '🍾', color: '#2196F3' },
@@ -44,17 +50,23 @@ const WASTE_CATEGORIES = [
   { id: 'trash',     label: 'General',   icon: '🗑️', color: '#607D8B' },
 ];
 
+// Helper function to map a category ID to its designated HEX color
 const getCategoryColor = (label: string) =>
   WASTE_CATEGORIES.find(c => c.id === label)?.color ?? '#888';
 
+// Key used to store the timestamp of when the user last dismissed the tutorial
 const TUTORIAL_STORAGE_KEY = 'communityReview_tutorialDismissedAt';
 
+// ----------------------------------------------------------------------------
+// INTERFACES
+// ----------------------------------------------------------------------------
 interface PendingImage {
   image_id: string;
   image_url: string;
   created_at: string | null;
 }
 
+// Represents a finalized bounding box drawn by the user
 interface DrawnBox {
   id: string;
   label: string;
@@ -65,6 +77,7 @@ interface DrawnBox {
   yolo: [number, number, number, number]; // [x_center, y_center, w, h] normalized 0-1
 }
 
+// Represents the temporary state of a box while the user is dragging their finger
 interface ActiveBox {
   startX: number;
   startY: number;
@@ -77,11 +90,14 @@ type CommunityReviewProps = NativeStackScreenProps<RootStackParamList, "Communit
 export default function CommunityReviewScreen({ navigation }: CommunityReviewProps) {
   const { profile } = useAuth();
 
+  // --------------------------------------------------------------------------
+  // STATE MANAGEMENT
+  // --------------------------------------------------------------------------
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0); // Tracks which image in the array we are viewing
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [reviewedCount, setReviewedCount] = useState(0);
+  const [reviewedCount, setReviewedCount] = useState(0); // Counter for Gamification/Praise
 
   // Drawing state
   const [drawnBoxes, setDrawnBoxes] = useState<DrawnBox[]>([]);
@@ -89,19 +105,21 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
   const [pendingBox, setPendingBox] = useState<ActiveBox | null>(null);
   const [classModalVisible, setClassModalVisible] = useState(false);
 
-  // Tutorial
+  // Tutorial State
   const [tutorialVisible, setTutorialVisible] = useState(false);
 
-  // Image + container geometry
+  // Image + container geometry (Required for calculating where the SVG boxes should be placed relative to the physical image)
   const [containerLayout, setContainerLayout] = useState({ width: 1, height: 1 });
   const [imageNaturalSize, setImageNaturalSize] = useState({ width: 1, height: 1 });
   const containerRef = useRef<View>(null);
-  // pageX/Y of the container so we can translate global gesture coords to local
+  
+  // pageX/Y of the container so we can translate global touch coords to local SVG coords
   const containerPageOffset = useRef({ x: 0, y: 0 });
 
   const API_URL = "https://waste-classifier-eu-89824582784.europe-west1.run.app";
 
   // ─── Tutorial logic ───────────────────────────────────────────────────────
+  // Checks if we should show the intro tutorial based on AsyncStorage
   useEffect(() => {
     checkTutorial();
   }, [profile]);
@@ -110,12 +128,12 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
     try {
       const dismissedAt = await AsyncStorage.getItem(TUTORIAL_STORAGE_KEY);
       const loginTs = profile?.lastLoginTimestamp ?? 0;
-      // Show tutorial if never dismissed or dismissed before the current login session
+      // Show tutorial if it was never dismissed, or if it was dismissed in a previous login session
       if (!dismissedAt || Number(dismissedAt) < loginTs) {
         setTutorialVisible(true);
       }
     } catch {
-      setTutorialVisible(true); // Fail-safe: show tutorial
+      setTutorialVisible(true); // Fail-safe: show tutorial if storage read fails
     }
   };
 
@@ -127,6 +145,7 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
   };
 
   // ─── Data fetching ────────────────────────────────────────────────────────
+  // On mount, fetch the list of pending images from the Flask backend
   useEffect(() => {
     fetchPendingImages();
   }, []);
@@ -150,17 +169,19 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
   };
 
   // ─── Container layout & image size ───────────────────────────────────────
+  
+  // Captures the physical size of the View container holding the image
   const handleContainerLayout = (event: any) => {
     const { width, height } = event.nativeEvent.layout;
     setContainerLayout({ width, height });
 
-    // Record the container's page position for coordinate translation
+    // Record the container's absolute position on the screen for accurate touch translation
     containerRef.current?.measure((_x, _y, _w, _h, pageX, pageY) => {
       containerPageOffset.current = { x: pageX, y: pageY };
     });
   };
 
-  // Re-measure when image loads (in case layout changed)
+  // Re-measure when the image actually loads to ensure we have the correct aspect ratio
   const handleImageLoad = () => {
     containerRef.current?.measure((_x, _y, _w, _h, pageX, pageY) => {
       containerPageOffset.current = { x: pageX, y: pageY };
@@ -174,6 +195,8 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
   };
 
   // ─── Coordinate math ─────────────────────────────────────────────────────
+  
+  // Calculates how the image is actually rendered inside the container (considering resizeMode="contain")
   const getImageGeometry = () => {
     const { width: cW, height: cH } = containerLayout;
     const { width: imgW, height: imgH } = imageNaturalSize;
@@ -185,6 +208,8 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
     return { scale, renderedW, renderedH, offsetX, offsetY };
   };
 
+  // Translates physical pixel dimensions (from the user's touch) into YOLO format.
+  // YOLO format is normalized (0.0 to 1.0) relative to the image's true size.
   const normalizeBoxToYolo = (box: ActiveBox): [number, number, number, number] => {
     const { renderedW, renderedH, offsetX, offsetY } = getImageGeometry();
 
@@ -203,31 +228,35 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
     ];
   };
 
-  // ─── PanResponder ─────────────────────────────────────────────────────────
+  // ─── PanResponder (Drawing gesture handler) ───────────────────────────────
+  
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
 
+      // User presses down -> Start drawing a new box
       onPanResponderGrant: (evt) => {
         const lx = evt.nativeEvent.pageX - containerPageOffset.current.x;
         const ly = evt.nativeEvent.pageY - containerPageOffset.current.y;
         setCurrentBox({ startX: lx, startY: ly, endX: lx, endY: ly });
       },
 
+      // User drags finger -> Resize the box dynamically
       onPanResponderMove: (evt) => {
         const lx = evt.nativeEvent.pageX - containerPageOffset.current.x;
         const ly = evt.nativeEvent.pageY - containerPageOffset.current.y;
         setCurrentBox(prev => prev ? { ...prev, endX: lx, endY: ly } : null);
       },
 
+      // User releases finger -> Finalize box and open Category selection modal
       onPanResponderRelease: () => {
         setCurrentBox(prev => {
           if (!prev) return null;
           const w = Math.abs(prev.endX - prev.startX);
           const h = Math.abs(prev.endY - prev.startY);
           if (w < 20 || h < 20) {
-            // Box too small — treat as accidental tap, discard
+            // Box too small — treat as an accidental tap and discard it
             return null;
           }
           // Finalize — show class modal
@@ -240,6 +269,8 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
   ).current;
 
   // ─── Class assignment ─────────────────────────────────────────────────────
+  
+  // Creates the final DrawnBox object after the user selects a category
   const assignClass = (label: string) => {
     if (!pendingBox) return;
 
@@ -280,6 +311,8 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
   };
 
   // ─── Submission ───────────────────────────────────────────────────────────
+  
+  // Send the user-drawn boxes to the Flask backend to be saved as YOLO annotations
   const handleSubmit = async () => {
     if (drawnBoxes.length === 0) {
       Toast.show({
@@ -334,6 +367,7 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
     }
   };
 
+  // Advances the carousel to the next pending image
   const moveToNextImage = () => {
     setDrawnBoxes([]);
     setImageNaturalSize({ width: 1, height: 1 });
@@ -348,6 +382,7 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
     }
   };
 
+  // Skips the current image without annotating it
   const handleSkip = () => {
     setDrawnBoxes([]);
     setImageNaturalSize({ width: 1, height: 1 });
@@ -362,6 +397,7 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
     }
   };
 
+  // Triggered when user marks an image as duplicate or useless
   const handleDeleteDuplicate = () => {
     Alert.alert(
       'Remove duplicate?',
@@ -373,6 +409,7 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
     );
   };
 
+  // Calls the backend to permanently delete the image from the pending queue bucket
   const deletePendingImage = async () => {
     const currentImage = pendingImages[currentIndex];
     if (!currentImage) return;
@@ -392,8 +429,11 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
         setPendingImages(newList);
         setDrawnBoxes([]);
         setImageNaturalSize({ width: 1, height: 1 });
+        
+        // Adjust the index so we don't go out of bounds
         const nextIndex = Math.min(currentIndex, newList.length - 1);
         setCurrentIndex(nextIndex < 0 ? 0 : nextIndex);
+        
         if (newList.length === 0) {
           Alert.alert('All Done!', 'No more images to review.', [
             { text: 'Done', onPress: () => navigation.goBack() },
@@ -412,6 +452,8 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
   const currentImage = pendingImages[currentIndex];
 
   // ─── Render helpers ───────────────────────────────────────────────────────
+  
+  // Renders the temporary dotted blue box while the user's finger is dragging
   const renderActiveSvgBox = () => {
     if (!currentBox) return null;
     const x = Math.min(currentBox.startX, currentBox.endX);
@@ -441,12 +483,15 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
         </TouchableOpacity>
       </View>
 
+      {/* Conditional Rendering Based on State */}
       {loading ? (
+        // STATE: Loading from API
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Loading images...</Text>
         </View>
       ) : pendingImages.length === 0 ? (
+        // STATE: No images left in the queue
         <View style={styles.emptyContainer}>
           <HelpCircle size={60} color={COLORS.onSurfaceVariant} />
           <Text style={styles.emptyTitle}>No Images to Review</Text>
@@ -456,14 +501,15 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
           </TouchableOpacity>
         </View>
       ) : (
+        // STATE: Images available for review
         <>
-          {/* Progress */}
+          {/* Progress Indicator */}
           <View style={styles.progressContainer}>
             <Text style={styles.progressText}>Image {currentIndex + 1} of {pendingImages.length}</Text>
             <Text style={styles.reviewedText}>Reviewed: {reviewedCount}</Text>
           </View>
 
-          {/* Drawing canvas */}
+          {/* Drawing Canvas Area */}
           <View
             ref={containerRef}
             style={styles.imageContainer}
@@ -477,7 +523,8 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
                 onLoad={handleImageLoad}
               />
             )}
-            {/* SVG layer — renders finalized boxes */}
+            
+            {/* SVG layer — renders finalized boxes on top of the image */}
             <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
               {drawnBoxes.map(box => {
                 const color = getCategoryColor(box.label);
@@ -502,14 +549,14 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
                   </React.Fragment>
                 );
               })}
-              {/* Active box being drawn */}
+              {/* Active dotted box being drawn */}
               {renderActiveSvgBox()}
             </Svg>
-            {/* Transparent touch layer */}
+            {/* Transparent touch layer to capture PanResponder gestures */}
             <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers} />
           </View>
 
-          {/* Scrollable bottom section */}
+          {/* Scrollable bottom section containing instructions and controls */}
           <ScrollView
             style={styles.bottomSection}
             contentContainerStyle={styles.bottomContent}
@@ -520,7 +567,7 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
               Press &amp; drag to draw a box around each object, then assign a category.
             </Text>
 
-            {/* Drawn boxes list */}
+            {/* List of currently drawn boxes (allowing the user to delete mistakes) */}
             {drawnBoxes.length > 0 && (
               <View style={styles.boxListContainer}>
                 <View style={styles.boxListHeader}>
@@ -547,7 +594,7 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
               </View>
             )}
 
-            {/* Action buttons */}
+            {/* Core Action buttons: Skip, Duplicate, Submit */}
             <View style={styles.actionsContainer}>
               <TouchableOpacity
                 style={styles.skipButton}
@@ -587,6 +634,7 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
       )}
 
       {/* ─── Class Assignment Modal ─────────────────────────────────────── */}
+      {/* Pops up automatically when the user finishes drawing a box */}
       <Modal
         visible={classModalVisible}
         transparent
@@ -617,6 +665,7 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
       </Modal>
 
       {/* ─── Tutorial Modal ─────────────────────────────────────────────── */}
+      {/* Shown to first-time users or via the info button in the header */}
       <Modal
         visible={tutorialVisible}
         transparent
@@ -654,11 +703,16 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
   );
 }
 
+// ============================================================================
+// STYLESHEET
+// ============================================================================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  
+  // Custom Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -682,6 +736,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.05)',
     borderRadius: 20,
   },
+  
+  // Loading & Empty States
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -722,6 +778,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  
+  // Progress Indicator (Top of the screen)
   progressContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -737,7 +795,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-  // Drawing canvas — fixed height, not in ScrollView
+  
+  // Drawing canvas (Fixed height to prevent flex issues)
   imageContainer: {
     height: 260,
     backgroundColor: '#111',
@@ -749,7 +808,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  // Scrollable bottom
+  
+  // Bottom Scrollable Section (Contains instructions and buttons)
   bottomSection: {
     flex: 1,
     marginTop: 6,
@@ -765,6 +825,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     fontStyle: 'italic',
   },
+  
+  // List of Drawn Boxes (Chips)
   boxListContainer: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
@@ -809,6 +871,8 @@ const styles = StyleSheet.create({
   deleteBoxBtn: {
     padding: 4,
   },
+  
+  // Control Buttons (Skip, Duplicate, Submit)
   actionsContainer: {
     flexDirection: 'row',
     gap: 12,
@@ -859,20 +923,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   submitButtonDisabled: {
-    backgroundColor: '#A5D6A7',
+    backgroundColor: '#A5D6A7', // Faded green when disabled
   },
   submitButtonText: {
     color: COLORS.white,
     fontWeight: 'bold',
     fontSize: 16,
   },
+  
   // ─── Modals ───────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'flex-end',
   },
-  // Class modal
+  
+  // Class Assignment Modal UI
   classModal: {
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 24,
@@ -926,7 +992,8 @@ const styles = StyleSheet.create({
     color: '#E53935',
     fontSize: 14,
   },
-  // Tutorial modal
+  
+  // Tutorial Modal UI
   tutorialModal: {
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 24,

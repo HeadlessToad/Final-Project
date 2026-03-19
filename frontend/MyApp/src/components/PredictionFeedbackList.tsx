@@ -1,7 +1,10 @@
 // components/PredictionFeedbackList.tsx
-// Shows model-detected boxes as cards for user validation.
-// Supports user-drawn additional boxes, per-class emoji, ghost styling,
-// and confirmation when all feedback is empty.
+// ============================================================================
+// COMPONENT PURPOSE:
+// Shows model-detected bounding boxes as a list of cards for user validation.
+// Supports user-drawn additional boxes, per-class emoji rendering, "ghost" 
+// styling for bad boxes, and requires confirmation when all feedback is empty.
+// ============================================================================
 
 import React, { useState } from "react";
 import {
@@ -15,6 +18,11 @@ import {
   Alert,
 } from "react-native";
 
+// ----------------------------------------------------------------------------
+// CONSTANTS & CONFIGURATION
+// ----------------------------------------------------------------------------
+
+// Maps classification labels to their corresponding UI emojis
 const CLASS_EMOJI: Record<string, string> = {
   cardboard: "📦",
   glass: "🍾",
@@ -24,6 +32,7 @@ const CLASS_EMOJI: Record<string, string> = {
   trash: "🗑️",
 };
 
+// Available categories for the correction modal when a user marks a detection as "False"
 const WASTE_CLASSES = [
   { id: "cardboard", label: "Cardboard",    emoji: "📦" },
   { id: "glass",     label: "Glass",        emoji: "🍾" },
@@ -33,6 +42,11 @@ const WASTE_CLASSES = [
   { id: "trash",     label: "General Waste",emoji: "🗑️" },
 ];
 
+// ----------------------------------------------------------------------------
+// INTERFACES & TYPES
+// ----------------------------------------------------------------------------
+
+// Represents a single bounding box detection (either from ML or user-drawn)
 export interface DetectionItem {
   id: string;
   label: string;
@@ -40,6 +54,7 @@ export interface DetectionItem {
   box_2d?: number[];
 }
 
+// Represents the validation feedback provided by the user for a specific detection
 export interface FeedbackData {
   detectionId: string;
   originalLabel: string;
@@ -50,12 +65,12 @@ export interface FeedbackData {
 
 interface Props {
   detections: DetectionItem[];
-  /** Additional boxes drawn by the user on the image */
+  /** Additional boxes drawn by the user manually on the image */
   userDrawnDetections?: DetectionItem[];
   onSubmit: (feedback: FeedbackData[]) => void;
-  /** Fires on every status change so parent can react (e.g. update box colors) */
+  /** Fires on every status change so parent can react (e.g., update box colors on the SVG) */
   onFeedbackChange?: (map: Record<string, FeedbackData>) => void;
-  /** Called when the user wants to delete one of their drawn boxes */
+  /** Called when the user wants to delete one of their custom drawn boxes */
   onDeleteUserDrawnBox?: (id: string) => void;
 }
 
@@ -66,26 +81,45 @@ export default function PredictionFeedbackList({
   onFeedbackChange,
   onDeleteUserDrawnBox,
 }: Props) {
+  // --------------------------------------------------------------------------
+  // STATE MANAGEMENT
+  // --------------------------------------------------------------------------
+  
+  // Tracks the user's validation decisions for all model detections
   const [feedbackMap, setFeedbackMap] = useState<Record<string, FeedbackData>>({});
+  
+  // Controls the visibility of the category correction modal
   const [modalVisible, setModalVisible] = useState(false);
+  
+  // Stores the ID of the detection currently being corrected in the modal
   const [activeDetectionId, setActiveDetectionId] = useState<string | null>(null);
 
+  // --------------------------------------------------------------------------
+  // HANDLERS
+  // --------------------------------------------------------------------------
+
+  // Centralized state updater that also fires the parent callback
   const updateMap = (newMap: Record<string, FeedbackData>) => {
     setFeedbackMap(newMap);
     onFeedbackChange?.(newMap);
   };
 
+  // Triggered when the user taps "True", "False", or "Bad Box" on a detection card
   const handleStatus = (item: DetectionItem, status: FeedbackData["status"]) => {
+    // If the label is wrong, open the modal to let them choose the correct one
     if (status === "wrong_label") {
       setActiveDetectionId(item.id);
       setModalVisible(true);
     }
+    
+    // Update the feedback state for this specific detection
     updateMap({
       ...feedbackMap,
       [item.id]: {
         detectionId: item.id,
         originalLabel: item.label,
         status,
+        // Preserve the corrected label only if the status is still "wrong_label"
         correctedLabel:
           status === "wrong_label" ? feedbackMap[item.id]?.correctedLabel : undefined,
         box_2d: item.box_2d,
@@ -93,6 +127,7 @@ export default function PredictionFeedbackList({
     });
   };
 
+  // Triggered when the user selects a new category from the correction modal
   const handleCategorySelect = (category: string) => {
     if (activeDetectionId) {
       updateMap({
@@ -107,9 +142,11 @@ export default function PredictionFeedbackList({
     setActiveDetectionId(null);
   };
 
+  // Validates and packages all feedback data before sending it to the parent component
   const handleSubmit = () => {
     const modelFeedback = Object.values(feedbackMap);
-    // User-drawn boxes are always submitted as "correct" with their assigned label
+    
+    // Auto-approve user-drawn boxes since the user explicitly added them
     const userDrawnFeedback: FeedbackData[] = userDrawnDetections.map((d) => ({
       detectionId: d.id,
       originalLabel: d.label,
@@ -117,9 +154,11 @@ export default function PredictionFeedbackList({
       box_2d: d.box_2d,
     }));
 
+    // Check if there is at least one useful piece of feedback (not marked as a 'ghost'/bad box)
     const hasValid =
       modelFeedback.some((f) => f.status !== "ghost") || userDrawnFeedback.length > 0;
 
+    // Prevent submission of totally empty/useless data without user confirmation
     if (!hasValid) {
       Alert.alert(
         "No Useful Feedback",
@@ -131,20 +170,28 @@ export default function PredictionFeedbackList({
       );
       return;
     }
+    
+    // Combine and submit both model feedback and user-drawn feedback
     onSubmit([...modelFeedback, ...userDrawnFeedback]);
   };
 
-  type ListItem = DetectionItem & { isUserDrawn?: boolean };
+  // --------------------------------------------------------------------------
+  // LIST RENDERING
+  // --------------------------------------------------------------------------
 
+  // Combine model detections and user-drawn detections into a single array for the FlatList
+  type ListItem = DetectionItem & { isUserDrawn?: boolean };
   const allItems: ListItem[] = [
     ...detections,
     ...userDrawnDetections.map((d) => ({ ...d, isUserDrawn: true as const })),
   ];
 
+  // Renders individual cards for both model detections and user-drawn detections
   const renderItem = ({ item }: { item: ListItem }) => {
     const emoji = CLASS_EMOJI[item.label.toLowerCase()] ?? "♻️";
 
-    // User-drawn box — simple card: label + delete button only
+    // --- RENDER BRANCH 1: USER-DRAWN BOXES ---
+    // Simpler UI card since user-drawn boxes are automatically assumed "correct"
     if (item.isUserDrawn) {
       return (
         <View style={styles.userDrawnCard}>
@@ -166,18 +213,21 @@ export default function PredictionFeedbackList({
       );
     }
 
-    // Model detection card — full feedback options
+    // --- RENDER BRANCH 2: MODEL DETECTIONS ---
+    // Full interactive card allowing True/False/Ghost validation
     const feedback: Partial<FeedbackData> = feedbackMap[item.id] ?? {};
     const isStatus = (s: string) => feedback.status === s;
     const isGhost = isStatus("ghost");
 
     return (
       <View style={[styles.card, isGhost && styles.cardGhost]}>
+        {/* Title and Confidence Score */}
         <Text style={[styles.title, isGhost && styles.titleGhost]}>
           {emoji} {item.label.toUpperCase()}{" "}
           <Text style={styles.conf}>{(item.confidence * 100).toFixed(0)}%</Text>
         </Text>
 
+        {/* Validation Action Buttons */}
         <View style={styles.row}>
           <TouchableOpacity
             style={[styles.btn, isStatus("correct") && styles.btnSuccess]}
@@ -201,12 +251,14 @@ export default function PredictionFeedbackList({
           </TouchableOpacity>
         </View>
 
+        {/* Ghost UI Feedback */}
         {isGhost && (
           <View style={styles.ghostBadge}>
             <Text style={styles.ghostBadgeText}>Box hidden from view</Text>
           </View>
         )}
 
+        {/* Dynamic Category Selector (Appears only if marked as "False") */}
         {isStatus("wrong_label") && (
           <TouchableOpacity
             style={styles.selectorBtn}
@@ -226,25 +278,31 @@ export default function PredictionFeedbackList({
     );
   };
 
+  // --------------------------------------------------------------------------
+  // MAIN RENDER
+  // --------------------------------------------------------------------------
   return (
     <View style={styles.container}>
+      {/* Header Section */}
       <Text style={styles.header}>Validate Results:</Text>
       <Text style={styles.subHeader}>
         Draw extra boxes on the image above, or review the detected ones below.
       </Text>
 
+      {/* Detection Cards List */}
       <FlatList
         data={allItems}
         renderItem={renderItem}
         keyExtractor={(i) => i.id}
-        scrollEnabled={false}
+        scrollEnabled={false} // Handled by parent ScrollView
       />
 
+      {/* Final Submit Button */}
       <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
         <Text style={styles.submitBtnText}>Submit Feedback</Text>
       </TouchableOpacity>
 
-      {/* Category picker modal */}
+      {/* Category Correction Modal */}
       <Modal
         visible={modalVisible}
         transparent
@@ -253,6 +311,7 @@ export default function PredictionFeedbackList({
       >
         <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
           <View style={styles.modalOverlay}>
+            {/* Inner feedback stops touches from closing the modal */}
             <TouchableWithoutFeedback>
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Select Correct Category</Text>
@@ -285,11 +344,16 @@ export default function PredictionFeedbackList({
   );
 }
 
+// ============================================================================
+// STYLESHEET
+// ============================================================================
 const styles = StyleSheet.create({
+  // Main container and headers
   container: { marginTop: 20, width: "100%" },
   header: { fontSize: 18, fontWeight: "bold", marginBottom: 4, color: "#333" },
   subHeader: { fontSize: 13, color: "#888", marginBottom: 12, fontStyle: "italic" },
 
+  // Base card styling for model detections
   card: {
     backgroundColor: "#fff",
     padding: 15,
@@ -304,9 +368,13 @@ const styles = StyleSheet.create({
     opacity: 0.65,
     borderColor: "#ddd",
   },
+  
+  // Title and Confidence
   title: { fontSize: 16, fontWeight: "bold", marginBottom: 10 },
   titleGhost: { color: "#999" },
   conf: { color: "#888", fontWeight: "normal", fontSize: 14 },
+  
+  // Action Buttons row (True/False/Ghost)
   row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
   btn: {
     paddingVertical: 10,
@@ -324,6 +392,7 @@ const styles = StyleSheet.create({
   btnWarn: { backgroundColor: "#fffde7", borderColor: "#fbc02d" },
   btnErr: { backgroundColor: "#ffebee", borderColor: "#ef5350" },
 
+  // Ghost indicator badge
   ghostBadge: {
     marginTop: 2,
     padding: 6,
@@ -333,7 +402,7 @@ const styles = StyleSheet.create({
   },
   ghostBadgeText: { color: "#999", fontSize: 12 },
 
-  // User-drawn box card (simple)
+  // User-drawn box specific styles
   userDrawnCard: {
     backgroundColor: "#E3F2FD",
     padding: 12,
@@ -361,7 +430,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   deleteBoxBtnText: { color: "#C62828", fontSize: 12, fontWeight: "600" },
-
   userDrawnBadge: {
     alignSelf: "flex-start",
     backgroundColor: "#BBDEFB",
@@ -371,6 +439,7 @@ const styles = StyleSheet.create({
   },
   userDrawnBadgeText: { color: "#1565C0", fontSize: 12, fontWeight: "600" },
 
+  // Correction Modal button (appears when False is selected)
   selectorBtn: {
     marginTop: 10,
     padding: 12,
@@ -382,6 +451,7 @@ const styles = StyleSheet.create({
   },
   selectorText: { color: "#1565c0", fontWeight: "bold" },
 
+  // Final Submit Button
   submitBtn: {
     backgroundColor: "#2196F3",
     padding: 15,
@@ -392,6 +462,7 @@ const styles = StyleSheet.create({
   },
   submitBtnText: { color: "white", fontWeight: "bold", fontSize: 16 },
 
+  // Category Correction Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
