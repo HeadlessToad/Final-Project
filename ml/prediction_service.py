@@ -1,3 +1,22 @@
+"""
+ml/prediction_service.py — LOCAL / PROTOTYPE inference module (not used in production)
+
+This is the original standalone prediction module written during local development.
+It is NOT used in production — the deployed Cloud Run container uses
+cloud_service/build_context/prediction_service.py instead.
+
+Key differences vs the production version (cloud_service/build_context/prediction_service.py):
+  - This version saves the annotated image to disk then reads it back (via r.save_dir).
+    The production version uses r.plot() in memory (no disk I/O, faster on Cloud Run).
+  - This version has no GCS weight-download logic — it only reads weights/best.pt locally.
+    The production version tries gs://retrain_smart_waste_model/models/best_latest.pt first,
+    so redeployed containers automatically pick up the latest retrained model.
+  - TIPS_MAP here is missing "TRASH" — the production version includes it.
+
+This file is kept as a reference for local GPU testing without spinning up Docker.
+To run inference locally: import get_classification_result from this module.
+"""
+
 import os
 import io
 import json

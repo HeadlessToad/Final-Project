@@ -1,4 +1,5 @@
 {
+  "_comment": "Read by prediction_service.py at startup to tag API responses with a version string. Update 'version' whenever a new model is trained and deployed. 'trained_on' and 'dataset' are informational only — the actual weights live in cloud_service/build_context/weights/best.pt (baked into Docker) and gs://retrain_smart_waste_model/models/best_latest.pt (live, downloaded at container startup).",
   "version": "v0-dummy",
   "trained_on": "2025-09-14",
   "dataset": "TrashNet (glass, paper, cardboard, plastic, metal, trash)",

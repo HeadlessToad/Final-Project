@@ -1,3 +1,22 @@
+"""
+backend/main.py — LOCAL DEVELOPMENT SERVER (not used in production)
+
+This was the original Flask server used during early development before the
+project moved to Google Cloud Run. It is NOT deployed anywhere and is kept
+for reference only.
+
+How it relates to the rest of the project:
+  - The production equivalent is cloud_service/build_context/main.py,
+    which runs on Cloud Run and is what the React Native app actually calls.
+  - This file uses ml/dummy_model.py (random predictions) instead of the
+    real YOLOv8 model, which made it fast to start without GPU/weights.
+  - Firestore writes here go to the same Firebase project, so running this
+    locally WILL write test data to production Firestore — use with caution.
+
+To run locally (for dev/debugging only):
+  cd backend && python main.py   # serves on http://0.0.0.0:8000
+"""
+
 import sys
 import os
 import datetime

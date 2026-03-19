@@ -1,3 +1,26 @@
+"""
+utilities/upload_recycling_centers.py — ONE-TIME ADMIN SCRIPT (run manually, not deployed)
+
+Reads the raw OpenStreetMap GeoJSON export (recycling_centers.json, ~814KB, downloaded
+via Overpass Turbo) and bulk-uploads every recycling bin as a document in the
+Firestore 'recycling_centers' collection.
+
+When to re-run:
+  - If the recycling_centers.json file is updated with newer OSM data.
+  - If the Firestore collection is accidentally deleted.
+
+Note: The React Native app does NOT read from this Firestore collection at runtime.
+The frontend reads from the local recycling_centers.json bundled in the app assets
+(via frontend/MyApp/src/data/recyclingData.ts). This Firestore upload exists as a
+cloud backup / admin reference and is not wired into the live app flow.
+
+Usage:
+  cd utilities
+  pip install firebase-admin
+  python upload_recycling_centers.py
+  (requires serviceAccountKey.json in the same folder)
+"""
+
 import json
 import os
 import firebase_admin

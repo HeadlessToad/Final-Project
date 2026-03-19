@@ -1,3 +1,21 @@
+"""
+utilities/upload_rewards.py — ONE-TIME ADMIN SCRIPT (run manually, not deployed)
+
+Reads rewardsData.json (the master catalog of redeemable rewards) and bulk-uploads
+each item as a document in the Firestore 'Products' collection.
+
+The React Native app reads from this Firestore collection at runtime (RewardsScreen.tsx
+and RewardDetailsScreen.tsx query 'Products'). So this script must be run whenever:
+  - A new reward is added or an existing reward changes price/description.
+  - The 'Products' collection is wiped and needs to be repopulated.
+
+Usage:
+  cd utilities
+  pip install firebase-admin
+  python upload_rewards.py
+  (requires serviceAccountKey.json in the same folder)
+"""
+
 import json
 import os
 import firebase_admin

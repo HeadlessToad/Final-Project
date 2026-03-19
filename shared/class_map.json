@@ -1,4 +1,5 @@
 {
+  "_comment": "Shared class map used by the ML model, the Cloud Run API, and the Kaggle retraining notebook. index_to_name is used for inference output (int → string). name_to_index is used when writing YOLO label files from user feedback (string → int). Both copies (shared/ and cloud_service/build_context/shared/) must be kept in sync.",
   "index_to_name": {
     "0": "glass",
     "1": "paper",

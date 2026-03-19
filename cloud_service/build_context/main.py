@@ -1,3 +1,28 @@
+"""
+main.py — Flask API for the waste-classifier-eu Cloud Run service.
+
+This is the production backend. It runs inside a Docker container deployed to
+Google Cloud Run (europe-west1). The frontend React Native app sends all
+image and feedback requests here.
+
+Endpoints:
+  POST /predict              — Accept a photo, run YOLOv8 inference, return detections
+  POST /feedback             — Accept user corrections, write YOLO labels to GCS, award points
+  GET  /pending-images       — Return up to 10 unreviewed images for community annotation
+  POST /community-feedback   — Save community-drawn bounding box annotations to GCS
+  DELETE /pending-images/<id> — Remove a specific image from the pending review queue
+  GET  /health               — Health check used by Cloud Run's readiness probe
+
+GCS bucket layout (retrain_smart_waste_model):
+  pending_images/{uuid}.jpg      — Uploaded on /predict; awaiting user feedback
+  training_data/images/{uuid}.jpg — Confirmed images (moved here by /feedback)
+  training_data/labels/{uuid}.txt — YOLO label files generated from user corrections
+
+Points system (awarded by /feedback when location_verified=true):
+  5 points per valid correction (status = "correct" or "wrong_label")
+  Capped at 25 points per scan submission
+"""
+
 import os
 import sys
 import uuid
@@ -20,8 +45,16 @@ db = firestore.client()
 
 app = Flask(__name__)
 
+# GCS bucket where all training data and model weights are stored.
+# Override via STORAGE_BUCKET env var if needed (e.g. for a staging bucket).
 BUCKET_NAME = os.getenv("STORAGE_BUCKET", "retrain_smart_waste_model")
 
+# ── /feedback ─────────────────────────────────────────────────────────────────
+# Called by the frontend after the user reviews the ML detections.
+# Each item in the feedback list has: detectionId, originalLabel, status, correctedLabel, box_2d.
+# This endpoint converts that into a YOLO label file and moves the image to training_data/.
+# The retrain_orchestrator Cloud Function watches training_data/ and triggers Kaggle when
+# enough samples accumulate (MIN_SAMPLES threshold).
 @app.route('/feedback', methods=['POST'])
 def save_feedback():
     try:
@@ -168,10 +201,16 @@ def save_feedback():
         print(f"❌ Feedback Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+# ── /health ───────────────────────────────────────────────────────────────────
+# Lightweight probe used by Cloud Run to confirm the container is ready to serve.
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "active", "mode": "local_inference"}), 200
 
+# ── /predict ──────────────────────────────────────────────────────────────────
+# Main classification endpoint. Receives a raw photo from the app camera,
+# saves it to GCS pending_images/ (so feedback can reference it later by UUID),
+# then runs YOLOv8 inference and returns all detected objects + annotated image.
 @app.route('/predict', methods=['POST'])
 def predict_route():
     if 'file' not in request.files:
@@ -206,6 +245,11 @@ def predict_route():
         print(f"❌ Prediction Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+# ── /pending-images ───────────────────────────────────────────────────────────
+# Community review feed. Returns images that were uploaded via /predict but
+# whose owner never submitted feedback (e.g. app closed, no correction made).
+# The CommunityReviewScreen fetches these and lets other users annotate them,
+# giving the ML pipeline additional labeled training data it wouldn't otherwise have.
 @app.route('/pending-images', methods=['GET'])
 def get_pending_images():
     """Get a batch of pending images for community review (max 10 at a time)"""
