@@ -1,4 +1,11 @@
 // screens/EditSingleFieldScreen.tsx
+// ============================================================================
+// COMPONENT PURPOSE:
+// A highly reusable screen designed to edit a single user profile field.
+// Instead of creating multiple screens (EditName, EditPhone, etc.), this single
+// screen dynamically adapts its UI, keyboard type, and Firestore update logic 
+// based on the 'fieldKey' passed to it via navigation parameters.
+// ============================================================================
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
@@ -9,6 +16,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import Toast from 'react-native-toast-message';
 
+// Centralized color palette
 const COLORS = {
     primary: '#4CAF50',
     background: '#FFFFFF',
@@ -21,10 +29,13 @@ const COLORS = {
 type EditSingleFieldProps = NativeStackScreenProps<RootStackParamList, "EditSingleField">;
 
 // --- HELPER FUNCTIONS ---
-// Purpose: Makes the header look nice (e.g., converts "fullName" -> "Full Name")
+
+// Purpose: Converts camelCase object keys into readable titles for the Header.
+// Example: "fullName" -> "Full Name", "birthDate" -> "Birth Date"
 const formatTitle = (key: string) => (key === 'fullName' ? 'Full Name' : key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1'));
 
-// Purpose: Shows the right keyboard (numbers for phone, text for name)
+// Purpose: Optimizes User Experience (UX) by opening the correct native keyboard.
+// Example: Opens the numpad directly when editing a phone number.
 const getKeyboardType = (key: string) => {
     if (key === 'phone') return 'phone-pad';
     if (key === 'birthDate') return 'numbers-and-punctuation'; 
@@ -32,29 +43,32 @@ const getKeyboardType = (key: string) => {
 };
 
 export default function EditSingleFieldScreen({ navigation, route }: EditSingleFieldProps) {
-    // 1. GET PARAMS: We receive which field to edit (e.g., 'city') and its current value
+    // 1. GET PARAMS: Receive which field to edit (e.g., 'city') and its current value from the Profile screen
     const { fieldKey, currentValue } = route.params;
+    
+    // Pull the authenticated user and the profile refresh function from global state
     const { user, refreshProfile } = useAuth(); 
 
-    // 2. STATE: 'value' holds what the user is typing right now
+    // 2. STATE: 'value' holds the live text input. If the DB had "Not set", default to empty string.
     const [value, setValue] = useState(currentValue === 'Not set' ? '' : currentValue); 
     const [loading, setLoading] = useState(false);
 
-    // 3. DYNAMIC HEADER: Sets the top bar title based on what we are editing
+    // 3. DYNAMIC HEADER: Updates the native navigation top bar title based on the field being edited
     React.useLayoutEffect(() => {
         navigation.setOptions({
             title: `Edit ${formatTitle(fieldKey)}`
         });
     }, [navigation, fieldKey]);
 
-    // 4. SAVE FUNCTION: This is the main logic
+    // 4. SAVE FUNCTION: The core logic to write changes to Firestore
     const handleSave = async () => {
         if (!user || loading) return;
 
-        // Map 'name' from UI to 'fullName' in Database
+        // DB Mapping: The UI might use 'name', but the Firestore schema expects 'fullName'
         const dbFieldKey = fieldKey === 'name' ? 'fullName' : fieldKey;
 
-        // Validation: Don't allow empty names/cities (Gender is optional)
+        // Validation: Prevent users from saving completely empty strings for critical fields.
+        // Gender and birthDate are allowed to be skipped depending on the flow.
         if (!value.trim() && dbFieldKey !== 'gender' && dbFieldKey !== 'birthDate') {
             Toast.show({
                 type: 'error',
@@ -70,16 +84,15 @@ export default function EditSingleFieldScreen({ navigation, route }: EditSingleF
             // Step A: Reference the specific user document in Firestore
             const userDocRef = doc(db, "users", user.uid);
 
-            // Step B: Send the update to Firebase
-            // [dbFieldKey] allows us to dynamically update "city", "phone", etc.
+            // Step B: Send the update to Firebase using computed property names [dbFieldKey]
             await updateDoc(userDocRef, {
                 [dbFieldKey]: value, 
             });
 
-            // Step C: Update the local app state immediately so the Profile screen updates
+            // Step C: Trigger a re-fetch in the AuthContext so the Profile screen instantly reflects the change
             await refreshProfile();
 
-            //  TOAST SUCCESS: Smooth banner instead of ugly Alert
+            // Step D: Show a smooth success banner
             Toast.show({
                 type: 'success',
                 text1: 'Success!',
@@ -88,7 +101,7 @@ export default function EditSingleFieldScreen({ navigation, route }: EditSingleF
                 visibilityTime: 2000,
             });
 
-            // Step D: Go back to the previous screen after a short delay
+            // Step E: Navigate back to the Profile screen after a slight delay to allow the Toast to be seen
             setTimeout(() => navigation.goBack(), 500);
             
         } catch (error) {
@@ -104,6 +117,7 @@ export default function EditSingleFieldScreen({ navigation, route }: EditSingleF
     };
 
     // --- RENDER 1: SPECIAL UI FOR GENDER SELECTION ---
+    // If the field is 'gender', we don't want a text input. We want a predefined list of radio buttons.
     if (fieldKey === 'gender') {
         const genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
 
@@ -117,7 +131,7 @@ export default function EditSingleFieldScreen({ navigation, route }: EditSingleF
                             onPress={() => setValue(option)}
                         >
                             <Text style={styles.optionText}>{option}</Text>
-                            {/* Custom Radio Button Circle */}
+                            {/* Custom Radio Button UI rendering logic */}
                             <View style={[styles.radioCircle, value === option && styles.radioCircleActive]}>
                                 {value === option && <View style={styles.radioInner} />}
                             </View>
@@ -132,6 +146,7 @@ export default function EditSingleFieldScreen({ navigation, route }: EditSingleF
     }
 
     // --- RENDER 2: STANDARD TEXT INPUT FOR EVERYTHING ELSE ---
+    // For names, cities, phone numbers, etc.
     return (
         <View style={styles.fullContainer}>
             <View style={styles.inputGroup}>
@@ -142,13 +157,14 @@ export default function EditSingleFieldScreen({ navigation, route }: EditSingleF
                     onChangeText={setValue}
                     keyboardType={getKeyboardType(fieldKey)}
                     placeholder={`Enter new ${fieldKey}`}
-                    autoFocus
+                    autoFocus // Automatically pops up the keyboard when the screen opens
                 />
             </View>
 
             <TouchableOpacity
                 style={styles.saveButton}
                 onPress={handleSave}
+                // Disable the save button if saving is in progress OR if the user hasn't changed the original text
                 disabled={loading || value === currentValue} 
                 activeOpacity={0.8}
             >
@@ -162,9 +178,13 @@ export default function EditSingleFieldScreen({ navigation, route }: EditSingleF
     );
 }
 
+// ============================================================================
+// STYLESHEET
+// ============================================================================
 const styles = StyleSheet.create({
     fullContainer: { flex: 1, backgroundColor: COLORS.background, padding: 20 },
 
+    // Standard Input Styles
     inputGroup: {
         marginBottom: 30,
         paddingTop: 10,
@@ -184,6 +204,7 @@ const styles = StyleSheet.create({
         color: COLORS.text,
     },
 
+    // Save Button Styles
     saveButton: {
         backgroundColor: COLORS.primary,
         padding: 16,
@@ -196,7 +217,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
     },
 
-    // --- Gender Styles ---
+    // --- Gender Selection (Radio Button) Styles ---
     optionGroup: {
         marginBottom: 30,
         paddingTop: 10,
@@ -217,6 +238,8 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: COLORS.text,
     },
+    
+    // Outer circle of the custom radio button
     radioCircle: {
         height: 24,
         width: 24,
@@ -226,9 +249,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    // Highlights the outer circle when selected
     radioCircleActive: {
         borderColor: COLORS.primary,
     },
+    // Inner filled circle when selected
     radioInner: {
         height: 12,
         width: 12,

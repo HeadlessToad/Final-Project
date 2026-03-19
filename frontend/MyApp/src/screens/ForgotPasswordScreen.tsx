@@ -1,4 +1,10 @@
 // screens/ForgotPasswordScreen.tsx
+// ============================================================================
+// COMPONENT PURPOSE:
+// Provides a UI for users who have forgotten their password. It captures
+// their email address and uses Firebase Authentication's built-in service 
+// to send a secure password reset link directly to their inbox.
+// ============================================================================
 
 import React, { useState } from 'react';
 import { 
@@ -19,6 +25,7 @@ import { auth } from "../firebaseConfig";
 import { Mail, ArrowLeft } from 'lucide-react-native';
 import Toast from 'react-native-toast-message'; 
 
+// Centralized color palette for the Forgot Password screen
 const COLORS = {
   primary: '#4CAF50',
   background: '#FFFFFF',
@@ -33,11 +40,18 @@ type Props = {
 };
 
 export default function ForgotPasswordScreen({ navigation }: Props) {
+  // --------------------------------------------------------------------------
+  // STATE MANAGEMENT
+  // --------------------------------------------------------------------------
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // --------------------------------------------------------------------------
+  // PASSWORD RESET LOGIC
+  // --------------------------------------------------------------------------
   const handleResetPassword = async () => {
     // 1. Validation: Check if email looks real
+    // Prevents unnecessary calls to Firebase if the input is obviously invalid
     if (!email.trim() || !email.includes("@")) {
       Toast.show({
         type: 'error',
@@ -72,6 +86,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
       console.error(error);
       
       // 5. Error Handling
+      // Catch specific Firebase errors to provide user-friendly feedback
       if (error.code === 'auth/user-not-found') {
         Toast.show({
             type: 'error',
@@ -86,22 +101,28 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
         });
       }
     } finally {
+      // Always stop the loading spinner, whether the request succeeded or failed
       setLoading(false);
     }
   };
 
+  // --------------------------------------------------------------------------
+  // MAIN RENDER
+  // --------------------------------------------------------------------------
   return (
+    // KeyboardAvoidingView ensures the input field isn't hidden when the keyboard pops up
     <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={styles.content}>
         
-        {/* Back Button */}
+        {/* Navigation: Back Button to return to the Login screen */}
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <ArrowLeft size={24} color={COLORS.text} />
         </TouchableOpacity>
 
+        {/* Screen Header */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Reset Password</Text>
           <Text style={styles.subtitle}>
@@ -109,7 +130,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
           </Text>
         </View>
 
-        {/* Input Field */}
+        {/* Email Input Field */}
         <View style={styles.inputWrapper}>
           <Text style={styles.label}>Email</Text>
           <View style={styles.inputContainer}>
@@ -120,13 +141,13 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
               placeholderTextColor={COLORS.placeholder}
               value={email}
               onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              keyboardType="email-address" // Opens keyboard optimized for emails (includes '@')
+              autoCapitalize="none"        // Prevents the first letter from being capitalized
             />
           </View>
         </View>
 
-        {/* Action Button */}
+        {/* Action Button: Send Link / Loading Spinner */}
         {loading ? (
           <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
         ) : (
@@ -144,14 +165,21 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   );
 }
 
+// ============================================================================
+// STYLESHEET
+// ============================================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 20, paddingTop: 60 },
+  
   backButton: { marginBottom: 20 },
+  
+  // Header Styling
   headerContainer: { marginBottom: 40 },
   title: { fontSize: 28, fontWeight: 'bold', color: COLORS.text, marginBottom: 10 },
   subtitle: { fontSize: 16, color: COLORS.placeholder, lineHeight: 22 },
   
+  // Input Field Styling
   inputWrapper: { marginBottom: 30 },
   label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
   inputContainer: { 
@@ -160,6 +188,7 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 16, color: COLORS.text },
 
+  // Submit Button Styling
   button: { 
     backgroundColor: COLORS.primary, height: 55, borderRadius: 30, 
     justifyContent: 'center', alignItems: 'center', shadowColor: '#000',

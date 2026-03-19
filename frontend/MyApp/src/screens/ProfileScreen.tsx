@@ -1,4 +1,11 @@
 // screens/ProfileScreen.tsx
+// ============================================================================
+// COMPONENT PURPOSE:
+// The Profile Screen serves as the user's personal hub. It displays their 
+// current points, lifetime items scanned, and provides a menu to navigate 
+// to deeper settings (Personal Details, Scan History, Points History).
+// It also handles the global Logout functionality.
+// ============================================================================
 
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image, } from 'react-native';
@@ -14,7 +21,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { BottomNavBar } from '../navigation/BottomNavBar';
 
-
+// Centralized color palette
 const COLORS = {
     primary: '#4CAF50', // Green
     primaryLight: '#8BC34A', // Lighter Green
@@ -30,13 +37,18 @@ const COLORS = {
 
 type ProfileScreenProps = NativeStackScreenProps<RootStackParamList, "Profile">;
 
-// --- Menu Item Component ---
+// ----------------------------------------------------------------------------
+// COMPONENT: MenuItemRow
+// ----------------------------------------------------------------------------
+// Defines the structure for the navigation list items
 interface MenuItem {
     icon: React.ReactNode;
     label: string;
     screen: keyof RootStackParamList;
 }
 
+// A reusable row component for the navigation menu. 
+// Takes an item object and the navigation prop to handle routing.
 const MenuItemRow: React.FC<{ item: MenuItem, navigation: ProfileScreenProps['navigation'] }> = ({ item, navigation }) => (
     <TouchableOpacity
         onPress={() => navigation.navigate(item.screen as any)}
@@ -51,11 +63,17 @@ const MenuItemRow: React.FC<{ item: MenuItem, navigation: ProfileScreenProps['na
     </TouchableOpacity>
 );
 
-
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
+    // --------------------------------------------------------------------------
+    // STATE & CONTEXT
+    // --------------------------------------------------------------------------
+    // Fetch the currently authenticated user and their Firestore profile data
     const { user, profile } = useAuth();
 
-    // Use actual user data or fallbacks
+    // --------------------------------------------------------------------------
+    // DATA PREPARATION
+    // --------------------------------------------------------------------------
+    // Use actual user data or provide clean fallbacks if data is still loading or missing
     const userName = profile?.fullName || user?.email?.split('@')[0] || 'Eco Warrior';
     const userEmail = user?.email || 'N/A';
     const userPoints = profile?.points ?? 0;
@@ -64,16 +82,26 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     const userItemsScanned = profile?.itemsScanned ?? 0;
 
     // --- Data for Menu Items ---
+    // Using an array makes the UI cleaner and easier to expand in the future.
     const menuItems: MenuItem[] = [
         { icon: <User size={20} color={COLORS.onSurfaceVariant} />, label: 'Personal Details', screen: 'PersonalDetails' as keyof RootStackParamList }, 
         { icon: <History size={20} color={COLORS.onSurfaceVariant} />, label: 'Classification History', screen: 'ClassificationHistory' as keyof RootStackParamList },
         { icon: <TrendingUp size={20} color={COLORS.onSurfaceVariant} />, label: 'Points History', screen: 'PointsHistory' as keyof RootStackParamList }, 
     ];
 
+    // --------------------------------------------------------------------------
+    // HANDLERS
+    // --------------------------------------------------------------------------
+    // Triggers the Firebase Auth logout process.
+    // Note: The AuthContext listener will detect this and automatically boot 
+    // the user back to the Login screen via the AppNavigator logic.
     const handleLogout = () => {
         signOut(auth);
     };
 
+    // --------------------------------------------------------------------------
+    // MAIN RENDER
+    // --------------------------------------------------------------------------
     return (
         <View style={styles.fullContainer}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -87,6 +115,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                 </View>
 
                 {/* --- 2. Profile Card --- */}
+                {/* Contains the Avatar, Name, Email, and the Points summary */}
                 <View style={styles.card}>
                     {/* User Info Section */}
                     <View style={styles.userInfoSection}>
@@ -124,6 +153,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                 </View>
 
                 {/* --- 3. Stats Cards --- */}
+                {/* Displays high-level gamification stats (e.g., total items scanned) */}
                 <View style={styles.statsContainer}>
                     <View style={styles.statsCard}>
                         <Text style={styles.statsIcon}>♻️</Text>
@@ -134,6 +164,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                 </View>
 
                 {/* --- 4. Menu Items --- */}
+                {/* Dynamically renders the navigation list using the menuItems array */}
                 <View style={[styles.card, styles.menuCard]}>
                     {menuItems.map((item, index) => (
                         <MenuItemRow
@@ -146,13 +177,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
             </ScrollView>
 
+            {/* Absolute positioned Bottom Navigation Bar */}
             <BottomNavBar currentRoute="Profile" />
         </View>
     );
 }
 
+// ============================================================================
+// STYLESHEET
+// ============================================================================
 const styles = StyleSheet.create({
     fullContainer: { flex: 1, backgroundColor: COLORS.background },
+    // Padding bottom ensures content doesn't hide behind the absolute navbar
     content: { padding: 20, paddingBottom: 150 },
 
     // --- Header & Logout ---
@@ -286,7 +322,7 @@ const styles = StyleSheet.create({
     // --- 4. Menu Items ---
     menuCard: {
         padding: 0,
-        overflow: 'hidden', 
+        overflow: 'hidden', // Keeps the inner borders clean inside the rounded card
     },
     menuItemRow: {
         flexDirection: 'row',

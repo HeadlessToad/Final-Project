@@ -1,19 +1,31 @@
 // screens/RewardsScreen.tsx
+// ============================================================================
+// COMPONENT PURPOSE:
+// Displays the catalog of available rewards. Users can browse items, filter 
+// them by category using horizontal chips, or search by text. Selecting an 
+// item navigates to the detailed reward screen.
+// ============================================================================
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, TextInput } from 'react-native';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
-import { Coins, Search } from 'lucide-react-native'; // Ensure you have this icon
+import { Coins, Search } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext'; 
 import { BottomNavBar } from '../navigation/BottomNavBar';
 
 // IMPORT THE DATA
 import { REWARDS_DATA, CATEGORIES, RewardItem } from '../data/rewardsData';
 
+// ----------------------------------------------------------------------------
+// CONSTANTS & CALCULATIONS
+// ----------------------------------------------------------------------------
+// Dynamically calculate item width based on screen size so exactly 2 items 
+// fit per row with proper spacing/padding (48 = 16px padding on left/right + 16px gap)
 const { width } = Dimensions.get('window');
 const ITEM_WIDTH = (width - 48) / 2; 
 
+// Centralized color palette
 const COLORS = {
     primary: '#4CAF50', 
     background: '#F5F7FA',
@@ -26,32 +38,45 @@ const COLORS = {
 type RewardsScreenProps = NativeStackScreenProps<RootStackParamList, "Rewards">;
 
 export default function RewardsCatalogScreen({ navigation }: RewardsScreenProps) {
+    // Fetch the user's live profile to display their current points balance
     const { profile } = useAuth();
     
-    // State for Filters
+    // --------------------------------------------------------------------------
+    // STATE MANAGEMENT
+    // --------------------------------------------------------------------------
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
 
-    // --- FILTER LOGIC ---
-    // This runs every time the user types or clicks a category
+    // --------------------------------------------------------------------------
+    // FILTER LOGIC
+    // --------------------------------------------------------------------------
+    // Re-evaluates every time the user types in the search bar or taps a category chip.
+    // It filters the static REWARDS_DATA array based on both criteria simultaneously.
     const filteredRewards = REWARDS_DATA.filter(item => {
         const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
         const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
     });
 
+    // --------------------------------------------------------------------------
+    // HANDLERS
+    // --------------------------------------------------------------------------
+    // Navigates to the detailed view of the clicked reward
     const handleRewardClick = (reward: RewardItem) => {
         // @ts-ignore
         navigation.navigate('RewardDetails', { selectedReward: reward }); 
     };
 
-    // Render Category Tab
+    // --------------------------------------------------------------------------
+    // RENDERERS
+    // --------------------------------------------------------------------------
+    // Renders a single chip in the horizontal categories list
     const renderCategoryItem = ({ item }: { item: string }) => (
         <TouchableOpacity 
             onPress={() => setSelectedCategory(item)}
             style={[
                 styles.categoryChip, 
-                selectedCategory === item && styles.categoryChipActive
+                selectedCategory === item && styles.categoryChipActive // Highlight if selected
             ]}
         >
             <Text style={[
@@ -63,12 +88,13 @@ export default function RewardsCatalogScreen({ navigation }: RewardsScreenProps)
         </TouchableOpacity>
     );
 
-    // Render Reward Tile
+    // Renders a single reward card in the 2-column grid
     const renderRewardItem = ({ item }: { item: RewardItem }) => (
         <TouchableOpacity onPress={() => handleRewardClick(item)} style={styles.rewardTile} activeOpacity={0.9}>
             <Image source={{ uri: item.image }} style={styles.rewardImage} />
             <View style={styles.rewardContent}>
                 <Text style={styles.categoryLabel}>{item.category}</Text>
+                {/* numberOfLines={2} prevents long titles from breaking the grid layout */}
                 <Text style={styles.rewardTitle} numberOfLines={2}>{item.title}</Text>
                 <View style={styles.pointsBadge}>
                     <Coins size={14} color={COLORS.white} />
@@ -78,10 +104,13 @@ export default function RewardsCatalogScreen({ navigation }: RewardsScreenProps)
         </TouchableOpacity>
     );
 
+    // --------------------------------------------------------------------------
+    // MAIN RENDER
+    // --------------------------------------------------------------------------
     return (
         <View style={styles.fullContainer}>
             
-            {/* 1. Header Section */}
+            {/* 1. Header Section (Balance & Search) */}
             <View style={styles.header}>
                 <View style={styles.balanceContainer}>
                    <Text style={styles.balanceLabel}>Your Balance</Text>
@@ -91,14 +120,14 @@ export default function RewardsCatalogScreen({ navigation }: RewardsScreenProps)
                    </View>
                 </View>
 
-                {/* Search Bar */}
+                {/* Text Search Bar */}
                 <View style={styles.searchContainer}>
                     <Search size={20} color={COLORS.grey} />
                     <TextInput 
                         placeholder="Search for gifts..." 
                         style={styles.searchInput}
                         value={searchQuery}
-                        onChangeText={setSearchQuery}
+                        onChangeText={setSearchQuery} // Automatically updates the filter logic above
                     />
                 </View>
             </View>
@@ -119,20 +148,25 @@ export default function RewardsCatalogScreen({ navigation }: RewardsScreenProps)
             <FlatList
                 data={filteredRewards}
                 keyExtractor={(item) => item.id}
-                numColumns={2}
-                columnWrapperStyle={styles.columnWrapper}
+                numColumns={2} // Creates the 2-column layout
+                columnWrapperStyle={styles.columnWrapper} // Spaces out the 2 columns evenly
                 contentContainerStyle={styles.rewardsGrid}
                 renderItem={renderRewardItem}
                 ListEmptyComponent={
+                    // Displayed if the search/filter combination yields no results
                     <Text style={styles.emptyText}>No items found matching "{searchQuery}"</Text>
                 }
             />
 
+            {/* Global Bottom Navigation Bar */}
             <BottomNavBar currentRoute="Rewards" />
         </View>
     );
 }
 
+// ============================================================================
+// STYLESHEET
+// ============================================================================
 const styles = StyleSheet.create({
     fullContainer: { flex: 1, backgroundColor: COLORS.background },
     
@@ -142,6 +176,7 @@ const styles = StyleSheet.create({
     balanceLabel: { fontSize: 14, color: COLORS.grey },
     balanceValue: { fontSize: 32, fontWeight: '800', color: COLORS.text },
     
+    // Search Bar
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -161,7 +196,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.white,
         borderWidth: 1,
         borderColor: COLORS.lightGrey,
-        marginRight: 8,
+        marginRight: 8, // Adds spacing between chips
     },
     categoryChipActive: {
         backgroundColor: COLORS.primary,
@@ -170,12 +205,12 @@ const styles = StyleSheet.create({
     categoryText: { fontWeight: '600', color: COLORS.grey },
     categoryTextActive: { color: COLORS.white },
 
-    // Grid
+    // Grid Container
     rewardsGrid: { padding: 16, paddingBottom: 80 },
     columnWrapper: { justifyContent: 'space-between' },
     emptyText: { textAlign: 'center', marginTop: 50, color: COLORS.grey },
 
-    // Tile
+    // Individual Reward Tile
     rewardTile: {
         width: ITEM_WIDTH,
         backgroundColor: COLORS.white,

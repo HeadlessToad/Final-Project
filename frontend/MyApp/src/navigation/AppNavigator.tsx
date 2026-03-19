@@ -1,117 +1,11 @@
-// // src/navigation/AppNavigator.tsx (Revised for cleaner naming)
-
-// import React from "react";
-// import { NavigationContainer } from "@react-navigation/native";
-// import { createNativeStackNavigator } from "@react-navigation/native-stack";
-// import { RootStackParamList } from "../types";
-// import { User } from "firebase/auth";
-
-// // --- Import all Screens and Components ---
-// import WelcomeScreen from "../screens/WelcomeScreen"; // Renamed splash file
-// import LoginScreen from "../screens/LoginScreen";     // Your Login form component (File name kept)
-// import RegisterScreen from "../screens/RegisterScreen";
-// import HomeScreen from "../screens/HomeScreen";       // Your new graphical home page
-// import ProfileScreen from "../screens/ProfileScreen";
-// import PersonalDetailsScreen from "../screens/PersonalDetailsScreen";
-// import EditSingleFieldScreen from "../screens/EditSingleFieldScreen";
-// import ClassificationHistoryScreen from "../screens/ClassificationHistoryScreen";
-// import PointsHistoryScreen from "../screens/PointsHistoryScreen";
-// import RewardsScreen from "../screens/RewardsScreen";
-// import RewardDetailsScreen from "../screens/RewardDetailsScreen";
-// // import SettingsScreen from "../screens/SettingsScreen";
-// import ScanScreen from "../screens/ScanScreen";
-// import ClassificationResultScreen from "../screens/ClassificationResultScreen";
-// import RecyclingCentersScreen from "../screens/RecyclingCentersScreen";
-// import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
-
-// const Stack = createNativeStackNavigator<RootStackParamList>();
-
-// interface AppNavigatorProps {
-//     user: User | null;
-//     role: "admin" | "user" | null;
-// }
-
-// export default function AppNavigator({ user, role }: AppNavigatorProps) {
-//     return (
-//         <NavigationContainer>
-//             <Stack.Navigator screenOptions={{ headerShown: false }}>
-//                 {user ? (
-//                     // ---------------- AUTHORIZED STACK (Unchanged) ----------------
-//                     <>
-//                         {/* HOME SCREEN (The entry point for logged-in users) */}
-//                         <Stack.Screen name="Home" component={HomeScreen} />
-//                         <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: true, title: "My Profile" }} />
-//                         <Stack.Screen
-//                             name="PersonalDetails" // 🔥 The route name used in ProfileScreen.tsx
-//                             component={PersonalDetailsScreen} // 🔥 The component file
-//                             options={{ headerShown: true, title: "Personal Details" }}
-//                         />
-//                         <Stack.Screen
-//                             name="ClassificationHistory" // The route name used in ProfileScreen.tsx
-//                             component={ClassificationHistoryScreen}
-//                             options={{ headerShown: true, title: "Classification History" }}
-//                         />
-//                         <Stack.Screen
-//                             name="EditSingleField" // 🔥 NEW ROUTE
-//                             component={EditSingleFieldScreen}
-//                             // Title will be set dynamically in the component using useLayoutEffect
-//                             options={{ headerShown: true }}
-//                         />
-//                         <Stack.Screen
-//                             name="PointsHistory"
-//                             component={PointsHistoryScreen}
-//                             options={{ headerShown: true, title: "Points History" }}
-//                         />
-//                         <Stack.Screen name="Rewards" component={RewardsScreen} options={{ headerShown: true, title: "Rewards Catalog" }} />
-//                         <Stack.Screen
-//                             name="RewardDetails" // 🔥 NEW ROUTE
-//                             component={RewardDetailsScreen}
-//                             options={{ headerShown: true, title: "Reward Details" }}
-//                         />
-//                         <Stack.Screen
-//                             name="ScanScreen" // <-- Must match the string used in handleNavigation
-//                             component={ScanScreen}
-//                             options={{ headerShown: false }}
-//                         />
-//                         <Stack.Screen
-//                             name="ClassificationResult"
-//                             component={ClassificationResultScreen}
-//                             options={{ headerShown: true, title: "Classification Result" }}
-//                         />
-//                         <Stack.Screen
-//                             name="RecyclingCenters"
-//                             component={RecyclingCentersScreen}
-//                             options={{ headerShown: true, title: "Recycling Centers" }}
-//                         />
-//                     </>
-//                 ) : (
-//                     // ---------------- UNAUTHORIZED STACK (Simplified) ----------------
-//                     <>
-//                         {/* 1. WELCOME/SPLASH SCREEN (Initial screen for unauthorized users) */}
-//                         <Stack.Screen name="Welcome" component={WelcomeScreen} />
-
-//                         {/* 2. LOGIN FORM (The file named LoginScreen.tsx) */}
-//                         <Stack.Screen
-//                             name="Login"
-//                             component={LoginScreen} // Component named LoginScreen.tsx
-//                             options={{ headerShown: true, title: "Sign In" }}
-//                         />
-
-//                         {/* 3. REGISTER FORM */}
-//                         <Stack.Screen
-//                             name="Register"
-//                             component={RegisterScreen}
-//                             options={{ headerShown: true, title: "Create Account" }}
-//                         />
-//                         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: true, title: "Forgot Password" }} />
-//                     </>
-//                 )}
-//             </Stack.Navigator>
-//         </NavigationContainer>
-//     );
-// }
-
 // src/navigation/AppNavigator.tsx
+// ============================================================================
+// COMPONENT PURPOSE:
+// This is the root navigator of the application. It uses React Navigation to 
+// manage the stack of screens. It implements an "Authentication Flow", meaning 
+// it conditionally renders different screens based on whether the user is 
+// logged in or not. This prevents unauthorized users from accessing the app.
+// ============================================================================
 
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
@@ -120,9 +14,13 @@ import { RootStackParamList } from "../types";
 import { User } from "firebase/auth";
 
 // --- Import all Screens and Components ---
+// Unauthorized flow screens
 import WelcomeScreen from "../screens/WelcomeScreen"; 
 import LoginScreen from "../screens/LoginScreen";     
 import RegisterScreen from "../screens/RegisterScreen";
+import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
+
+// Authorized flow screens (Main App)
 import HomeScreen from "../screens/HomeScreen";       
 import ProfileScreen from "../screens/ProfileScreen";
 import PersonalDetailsScreen from "../screens/PersonalDetailsScreen";
@@ -134,78 +32,89 @@ import RewardDetailsScreen from "../screens/RewardDetailsScreen";
 import ScanScreen from "../screens/ScanScreen";
 import ClassificationResultScreen from "../screens/ClassificationResultScreen";
 import RecyclingCentersScreen from "../screens/RecyclingCentersScreen";
-import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
 import CommunityReviewScreen from "../screens/CommunityReviewScreen";
 
+// Initialize the Stack Navigator with our predefined parameter list (for type safety)
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// Props expected by the AppNavigator, usually passed down from the root App component
 interface AppNavigatorProps {
-    user: User | null;
-    role: "admin" | "user" | null;
+    user: User | null;             // The current Firebase Auth user object
+    role: "admin" | "user" | null; // The user's role (currently unused in routing, but ready for future admin screens)
 }
 
 export default function AppNavigator({ user, role }: AppNavigatorProps) {
     return (
         <NavigationContainer>
+            {/* By default, we hide the top header bar for a cleaner look. 
+                Specific screens that need a back button/title will override this below.
+            */}
             <Stack.Navigator screenOptions={{ headerShown: false }}>
+                
+                {/* CONDITIONAL ROUTING LOGIC:
+                    If a 'user' object exists, render the private app screens.
+                    If 'user' is null, render only the login/signup screens.
+                */}
                 {user ? (
                     // ---------------- AUTHORIZED STACK ----------------
+                    // These screens are only accessible to logged-in users.
                     <>
-                        {/* HOME SCREEN */}
+                        {/* Core Dashboard / Main Menu */}
                         <Stack.Screen name="Home" component={HomeScreen} />
                         
+                        {/* User Profile & Settings Flow */}
                         <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: true, title: "My Profile" }} />
-                        
                         <Stack.Screen
                             name="PersonalDetails"
                             component={PersonalDetailsScreen}
                             options={{ headerShown: true, title: "Personal Details" }}
                         />
+                        <Stack.Screen
+                            name="EditSingleField"
+                            component={EditSingleFieldScreen}
+                            options={{ headerShown: true }} // Title is set dynamically inside the component
+                        />
                         
+                        {/* History & Statistics */}
                         <Stack.Screen
                             name="ClassificationHistory"
                             component={ClassificationHistoryScreen}
                             options={{ headerShown: true, title: "Classification History" }}
                         />
-                        
-                        <Stack.Screen
-                            name="EditSingleField"
-                            component={EditSingleFieldScreen}
-                            options={{ headerShown: true }}
-                        />
-                        
                         <Stack.Screen
                             name="PointsHistory"
                             component={PointsHistoryScreen}
                             options={{ headerShown: true, title: "Points History" }}
                         />
 
+                        {/* Gamification & Rewards Flow */}
                         <Stack.Screen name="Rewards" component={RewardsScreen} options={{ headerShown: true, title: "Rewards Catalog" }} />
-                        
                         <Stack.Screen
                             name="RewardDetails"
                             component={RewardDetailsScreen}
                             options={{ headerShown: true, title: "Reward Details" }}
                         />
                         
+                        {/* Core App Feature: Camera & Scanning Flow */}
                         <Stack.Screen
                             name="ScanScreen"
                             component={ScanScreen}
-                            options={{ headerShown: false }}
+                            options={{ headerShown: false }} // Keep header hidden for full-screen camera
                         />
-                        
                         <Stack.Screen
                             name="ClassificationResult"
                             component={ClassificationResultScreen}
                             options={{ headerShown: true, title: "Classification Result" }}
                         />
                         
+                        {/* Map & Locations */}
                         <Stack.Screen
                             name="RecyclingCenters"
                             component={RecyclingCentersScreen}
                             options={{ headerShown: true, title: "Recycling Centers" }}
                         />
 
+                        {/* Community Features */}
                         <Stack.Screen
                             name="CommunityReview"
                             component={CommunityReviewScreen}
@@ -214,6 +123,9 @@ export default function AppNavigator({ user, role }: AppNavigatorProps) {
                     </>
                 ) : (
                     // ---------------- UNAUTHORIZED STACK ----------------
+                    // These screens handle user onboarding and authentication.
+                    // Once the user logs in, React Navigation automatically unmounts 
+                    // these screens and mounts the Authorized Stack above.
                     <>
                         <Stack.Screen name="Welcome" component={WelcomeScreen} />
                         
@@ -229,7 +141,11 @@ export default function AppNavigator({ user, role }: AppNavigatorProps) {
                             options={{ headerShown: true, title: "Create Account" }}
                         />
                         
-                        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: true, title: "Forgot Password" }} />
+                        <Stack.Screen 
+                            name="ForgotPassword" 
+                            component={ForgotPasswordScreen} 
+                            options={{ headerShown: true, title: "Forgot Password" }} 
+                        />
                     </>
                 )}
             </Stack.Navigator>
