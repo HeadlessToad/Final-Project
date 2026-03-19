@@ -49,23 +49,28 @@ import re
 import json
 import time
 import functions_framework
+from datetime import datetime, timezone
 from google.cloud import storage
 from google.cloud.run_v2 import ServicesClient, UpdateServiceRequest
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-BUCKET_NAME  = "retrain_smart_waste_model"
-MIN_SAMPLES  = 10  # Minimum valid image+label pairs required before triggering a retrain
+BUCKET_NAME = "retrain_smart_waste_model"
+MIN_SAMPLES = 1000  # Minimum valid image+label pairs required before triggering a retrain
 
 # ── Logging helpers ───────────────────────────────────────────────────────────
 # Using print() instead of logging module — Cloud Run captures stdout reliably,
 # while the logging module sometimes fails to surface in Cloud Logging.
-def log_info(msg):  print(f"[INFO] {msg}", flush=True)
+
+
+def log_info(msg): print(f"[INFO] {msg}", flush=True)
 def log_error(msg): print(f"[ERROR] {msg}", flush=True)
 
 # ── Credential sanitizer ───────────────────────────────────────────────────────
 # Strips BOM (\ufeff), carriage returns (\r\n from PowerShell), and any other
 # non-printable-ASCII characters from credential/env-var strings.
 # \x20-\x7E = all printable ASCII (space through tilde).
+
+
 def _clean(s: str) -> str:
     return re.sub(r'[^\x20-\x7E]', '', s).strip()
 
@@ -109,7 +114,8 @@ def push_kaggle_notebook(kernel_slug: str, username: str, api_key: str, bucket) 
     # This avoids the 'latin-1' UnicodeEncodeError that occurs when the BOM survives
     # into the HTTP request body and http.client (system locale = LANG=C) tries to encode it.
     notebook_str = notebook_blob.download_as_bytes().decode('utf-8-sig')
-    log_info(f"Downloaded notebook from GCS ({len(notebook_str)} chars)")
+    log_info(
+        f"Downloaded notebook from GCS ({len(notebook_str)} chars, preview={repr(notebook_str[:80])})")
 
     try:
         import urllib.request
@@ -128,15 +134,11 @@ def push_kaggle_notebook(kernel_slug: str, username: str, api_key: str, bucket) 
         log_info(f"Pushing kernel slug='{kernel_slug}' to Kaggle")
 
         # ── Push new notebook version ──────────────────────────────────────────
-        # "slug"        — full "username/kernel-name" ref that identifies the kernel.
-        # "source_code" — notebook JSON as a plain string (Kaggle API v1 field name).
-        # No "id" field — avoids the "could not convert string to integer" error.
-        # Kaggle API v1 /kernels/push uses camelCase JSON field names.
-        # "blob" is the field for notebook content (maps from Python "source_code").
+        # All fields use camelCase (Kaggle API v1 convention).
         body = {
             "slug": kernel_slug,
             "newTitle": "Retrainning Waste Classification model",
-            "blob": notebook_str,
+            "text": notebook_str,
             "language": "python",
             "kernelType": "notebook",
             "isPrivate": True,
@@ -148,9 +150,7 @@ def push_kaggle_notebook(kernel_slug: str, username: str, api_key: str, bucket) 
             "totalVotes": 0,
         }
 
-        # ensure_ascii=True converts ALL non-ASCII chars (including \ufeff) to \uXXXX escapes
-        # → pure ASCII string → .encode('utf-8') → bytes before any socket code can interfere.
-        body_bytes = json.dumps(body, ensure_ascii=True).encode('utf-8')
+        body_bytes = json.dumps(body).encode('utf-8')
 
         push_req = urllib.request.Request(
             "https://www.kaggle.com/api/v1/kernels/push",
@@ -170,7 +170,8 @@ def push_kaggle_notebook(kernel_slug: str, username: str, api_key: str, bucket) 
         if resp_json.get("hasError"):
             return False, resp_json.get("error", "Unknown Kaggle error")
 
-        log_info(f"Notebook pushed to Kaggle: {kernel_slug} — version {resp_json.get('versionNumber')}")
+        log_info(
+            f"Notebook pushed to Kaggle: {kernel_slug} — version {resp_json.get('versionNumber')}")
         return True, ""
 
     except urllib.error.HTTPError as e:
@@ -204,10 +205,12 @@ def redeploy_cloud_run(project: str, region: str = "europe-west1", service: str 
             else:
                 # First time — add the env var
                 from google.cloud.run_v2.types import EnvVar
-                container.env.append(EnvVar(name="MODEL_UPDATED_AT", value=timestamp))
+                container.env.append(
+                    EnvVar(name="MODEL_UPDATED_AT", value=timestamp))
 
         client.update_service(request=UpdateServiceRequest(service=svc))
-        log_info(f"Cloud Run service '{service}' redeployment triggered (MODEL_UPDATED_AT={timestamp})")
+        log_info(
+            f"Cloud Run service '{service}' redeployment triggered (MODEL_UPDATED_AT={timestamp})")
         return True
     except Exception as e:
         log_error(f"Cloud Run redeploy failed: {e}")
@@ -225,7 +228,7 @@ def retrain_orchestrator(cloud_event):
     Counts valid image+label pairs — if >= MIN_SAMPLES, pushes the Kaggle notebook
     to kick off a new GPU training run.
     """
-    data        = cloud_event.data
+    data = cloud_event.data
     object_name = data.get("name", "")
     log_info(f"retrain_orchestrator triggered by: {object_name}")
 
@@ -237,14 +240,15 @@ def retrain_orchestrator(cloud_event):
     # Read Kaggle credentials from env vars (set in deploy.ps1)
     # _clean() strips BOM (\ufeff), \r\n from PowerShell, and any non-ASCII garbage
     kaggle_username = _clean(os.environ.get("KAGGLE_USERNAME", ""))
-    kaggle_key      = _clean(os.environ.get("KAGGLE_KEY", ""))   # injected from Secret Manager
-    kernel_slug     = _clean(os.environ.get("KAGGLE_KERNEL_SLUG", ""))
+    kaggle_key = _clean(os.environ.get("KAGGLE_KEY", "")
+                        )   # injected from Secret Manager
+    kernel_slug = _clean(os.environ.get("KAGGLE_KERNEL_SLUG", ""))
 
     if not all([kaggle_username, kaggle_key, kernel_slug]):
         log_error("Missing Kaggle env vars — check deploy.ps1 configuration")
         return
 
-    gcs    = storage.Client()
+    gcs = storage.Client()
     bucket = gcs.bucket(BUCKET_NAME)
 
     # Count how many complete image+label pairs exist in the bucket
@@ -256,11 +260,35 @@ def retrain_orchestrator(cloud_event):
         log_info("Not enough data yet — waiting for more feedback.")
         return
 
+    # ── In-progress guard ─────────────────────────────────────────────────────
+    # Prevents pushing a new Kaggle version while the previous run is still active
+    # (which causes HTTP 409 Conflict from Kaggle).
+    state_blob = bucket.blob("models/run_state.json")
+    if state_blob.exists():
+        state = json.loads(state_blob.download_as_text())
+        started = datetime.fromisoformat(state["started_at"])
+        age_hours = (datetime.now(timezone.utc) -
+                     started).total_seconds() / 3600
+        if age_hours < 4:
+            log_info(
+                f"Kaggle run already in progress (started {age_hours:.1f}h ago) — skipping push.")
+            return
+        log_info(f"Stale run_state.json ({age_hours:.1f}h old) — overwriting.")
+
     # Threshold reached — push the notebook to Kaggle to start GPU training
     log_info(f"Threshold reached! Pushing notebook to Kaggle: {kernel_slug}")
-    ok, err = push_kaggle_notebook(kernel_slug, kaggle_username, kaggle_key, bucket)
+    ok, err = push_kaggle_notebook(
+        kernel_slug, kaggle_username, kaggle_key, bucket)
     if not ok:
         log_error(f"Failed to push notebook: {err}")
+        return
+
+    # Write in-progress marker so concurrent triggers know a run is underway
+    state_blob.upload_from_string(
+        json.dumps({"started_at": datetime.now(timezone.utc).isoformat()}),
+        content_type="application/json",
+    )
+    log_info("Notebook pushed — wrote models/run_state.json (pipeline in progress).")
 
 
 # ── Function 2: deploy new weights when Kaggle training finishes ──────────────
@@ -275,7 +303,7 @@ def retrain_deployer(cloud_event):
     If improved == true, forces a new Cloud Run revision of waste-classifier-eu
     which downloads the fresh weights from GCS on startup.
     """
-    data        = cloud_event.data
+    data = cloud_event.data
     object_name = data.get("name", "")
     log_info(f"retrain_deployer triggered by: {object_name}")
 
@@ -289,13 +317,20 @@ def retrain_deployer(cloud_event):
         log_error("Missing GCP_PROJECT env var — check deploy.ps1 configuration")
         return
 
-    gcs    = storage.Client()
+    gcs = storage.Client()
     bucket = gcs.bucket(BUCKET_NAME)
-    blob   = bucket.blob("models/training_status.json")
+    blob = bucket.blob("models/training_status.json")
 
     if not blob.exists():
-        log_error("training_status.json not found in GCS — notebook may have crashed before writing it")
+        log_error(
+            "training_status.json not found in GCS — notebook may have crashed before writing it")
         return
+
+    # Clear the in-progress lock — pipeline is done regardless of outcome
+    run_state = bucket.blob("models/run_state.json")
+    if run_state.exists():
+        run_state.delete()
+        log_info("Deleted models/run_state.json — pipeline complete.")
 
     # training_status.json written by the Kaggle notebook:
     # { "status": "complete", "improved": true/false,
@@ -310,15 +345,22 @@ def retrain_deployer(cloud_event):
 
     # Notebook finished with an error (e.g. not enough data, crash)
     if status.get("status") != "complete":
-        log_info("Training did not complete — skipping deploy.")
+        log_info(
+            f"Training did not complete (status={status.get('status')}) — skipping deploy.")
         return
 
     # New model is worse than or equal to the current one — keep production unchanged
     if not status.get("improved", False):
-        log_info("Model did not improve — keeping current production model.")
+        log_info(
+            f"Model did not improve (new={status.get('new_map50', 0):.4f} vs "
+            f"baseline={status.get('baseline_map50', 0):.4f}) — keeping current production model."
+        )
         return
 
     # New model is better — trigger a rolling redeploy of waste-classifier-eu
     # The new revision will download models/best_latest.pt from GCS at startup
-    log_info("Model improved — triggering Cloud Run redeploy of waste-classifier-eu")
+    log_info(
+        f"Model improved! new_map50={status.get('new_map50', 0):.4f} vs "
+        f"baseline={status.get('baseline_map50', 0):.4f} — triggering Cloud Run redeploy."
+    )
     redeploy_cloud_run(gcp_project)
