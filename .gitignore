@@ -19,3 +19,7 @@ KaggleAPI.txt
 
 # Ignore text files
 *.txt
+
+# Ignore claude and expo files(exclude CLAUDE.md)
+*.claude
+*.expo
