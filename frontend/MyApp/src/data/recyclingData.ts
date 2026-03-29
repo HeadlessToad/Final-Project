@@ -18,7 +18,7 @@ export interface Center {
     wasteTypes: string[];    // Array of accepted waste categories (e.g., ['Plastic', 'Glass'])
 }
 
-// 🔥 STRICT FILTERING LOGIC
+// STRICT FILTERING LOGIC
 // We map over the raw GeoJSON features and extract only the relevant information.
 // Any feature that doesn't match our specific app categories is filtered out.
 export const REAL_CENTERS: Center[] = (rawGeoJson as any).features
@@ -70,7 +70,7 @@ export const REAL_CENTERS: Center[] = (rawGeoJson as any).features
             detectedTypes.push('Cardboard');
         }
 
-        // 3. 🚨 THE FILTER: 
+        // 3.The filter: 
         // If we processed this node but found NO specific types that our app supports 
         // (e.g., if it was a battery-only bin), we return null to mark it for deletion.
         if (detectedTypes.length === 0) {

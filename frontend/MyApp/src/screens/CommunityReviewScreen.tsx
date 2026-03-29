@@ -28,6 +28,7 @@ import { ArrowLeft, CheckCircle, SkipForward, HelpCircle, Trash2, Info } from 'l
 import { getAuth } from 'firebase/auth';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../context/AuthContext';
+import { usePrefetch } from '../context/PrefetchContext';
 
 // Centralized color palette
 const COLORS = {
@@ -89,6 +90,13 @@ type CommunityReviewProps = NativeStackScreenProps<RootStackParamList, "Communit
 
 export default function CommunityReviewScreen({ navigation }: CommunityReviewProps) {
   const { profile } = useAuth();
+  const {
+    pendingImages: prefetchedImages,
+    pendingImagesLoading: prefetchLoading,
+    refreshPendingImages,
+  } = usePrefetch();
+  // Prevents double-initialisation if this effect fires more than once
+  const initializedRef = useRef(false);
 
   // --------------------------------------------------------------------------
   // STATE MANAGEMENT
@@ -145,10 +153,26 @@ export default function CommunityReviewScreen({ navigation }: CommunityReviewPro
   };
 
   // ─── Data fetching ────────────────────────────────────────────────────────
-  // On mount, fetch the list of pending images from the Flask backend
+  // Use pre-fetched images from PrefetchContext when available.
+  // If the prefetch is still in flight, wait for it (don't start a parallel fetch).
+  // Only fall back to a direct fetch if the prefetch already finished and returned nothing.
   useEffect(() => {
-    fetchPendingImages();
-  }, []);
+    if (initializedRef.current) return;
+
+    if (prefetchedImages !== null) {
+      // Prefetch completed — use the cached images immediately
+      initializedRef.current = true;
+      setPendingImages(prefetchedImages);
+      setLoading(false);
+      // Reset the context cache so the next visit gets fresh images
+      refreshPendingImages();
+    } else if (!prefetchLoading) {
+      // Prefetch already finished but returned nothing (failed) — fetch directly
+      initializedRef.current = true;
+      fetchPendingImages();
+    }
+    // If prefetchLoading is true, this effect re-runs when the context updates
+  }, [prefetchedImages, prefetchLoading]);
 
   const fetchPendingImages = async () => {
     try {

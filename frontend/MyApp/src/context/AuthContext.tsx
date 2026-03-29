@@ -1,7 +1,7 @@
 // src/context/AuthContext.tsx
 // ============================================================================
 // COMPONENT PURPOSE:
-// This is the global Authentication Context Provider. It manages the user's 
+// This is the global Authentication Context Provider. It manages the user's
 // authentication state (via Firebase Auth) and their profile data (via Firestore).
 // It also handles session expiration and real-time profile updates.
 // ============================================================================
@@ -43,11 +43,11 @@ export interface UserProfile {
 // --- UPDATED CONTEXT TYPE: Includes the profile refresh function ---
 // Defines what data and functions are available to components consuming this context.
 interface AuthContextType {
-  user: User | null;                       // Firebase Auth user object
-  profile: UserProfile | null;             // Detailed user data from Firestore
-  userRole: "admin" | "user" | null;       // Quick access to the user's role
-  loading: boolean;                        // True while determining initial auth state
-  refreshProfile: () => Promise<void>;     // Function to manually re-fetch the profile
+  user: User | null; // Firebase Auth user object
+  profile: UserProfile | null; // Detailed user data from Firestore
+  userRole: "admin" | "user" | null; // Quick access to the user's role
+  loading: boolean; // True while determining initial auth state
+  refreshProfile: () => Promise<void>; // Function to manually re-fetch the profile
 }
 
 // --- INITIAL CONTEXT VALUE ---
@@ -72,7 +72,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<"admin" | "user" | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 NEW FUNCTION: Centralized profile fetching
+  // Centralized profile fetching
   // Fetches the user's Firestore document. If it doesn't exist (e.g., first login),
   // it creates a default profile for them.
   const fetchProfile = async (authenticatedUser: User) => {
@@ -122,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // 🔥 NEW FUNCTION: Public function to force profile update after a save
+  // Public function to force profile update after a save
   // Allows components (like a Profile Edit screen) to force a re-fetch of data.
   const refreshProfile = async () => {
     if (user) {

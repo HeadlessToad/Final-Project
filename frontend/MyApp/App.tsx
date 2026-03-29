@@ -2,7 +2,8 @@ import React from "react";
 import { View, ActivityIndicator } from "react-native";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
-import Toast from 'react-native-toast-message'; 
+import { PrefetchProvider } from "./src/context/PrefetchContext";
+import Toast from 'react-native-toast-message';
 
 // Create a wrapper component to handle the loading state check
 const AppContent = () => {
@@ -22,8 +23,10 @@ const AppContent = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
-      <Toast />
+      <PrefetchProvider>
+        <AppContent />
+        <Toast />
+      </PrefetchProvider>
     </AuthProvider>
   );
 }

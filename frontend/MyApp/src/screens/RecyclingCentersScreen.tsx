@@ -1,8 +1,8 @@
 // screens/RecyclingCentersScreen.tsx
 // ============================================================================
 // COMPONENT PURPOSE:
-// An interactive Map and List view showing local recycling centers. 
-// It calculates the user's distance to each center, allows filtering by waste 
+// An interactive Map and List view showing local recycling centers.
+// It calculates the user's distance to each center, allows filtering by waste
 // category, and listens to real-time community reports from Firestore.
 // If a center is reported missing 3+ times, it is marked as "Blocked".
 // ============================================================================
@@ -14,7 +14,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   Platform,
   Alert,
   Linking,
@@ -38,11 +37,13 @@ import {
 } from "lucide-react-native";
 import { BottomNavBar } from "../navigation/BottomNavBar";
 import { REAL_CENTERS } from "../data/recyclingData";
+import { usePrefetch } from "../context/PrefetchContext";
 
 // 🔥 FIREBASE IMPORTS
 import { db } from "../firebaseConfig";
 import {
   doc,
+  collection,
   onSnapshot,
   setDoc,
   updateDoc,
@@ -54,7 +55,7 @@ import Toast from "react-native-toast-message";
 // ----------------------------------------------------------------------------
 // HELPER FUNCTIONS
 // ----------------------------------------------------------------------------
-// Explanation: This uses the Haversine formula to calculate the "as the crow flies" 
+// Explanation: This uses the Haversine formula to calculate the "as the crow flies"
 // distance between two GPS coordinates on a sphere (Earth) in Kilometers.
 const getDistance = (
   lat1: number,
@@ -102,11 +103,15 @@ export default function RecyclingCentersScreen({
   // --------------------------------------------------------------------------
   // STATE MANAGEMENT
   // --------------------------------------------------------------------------
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [location, setLocation] = useState<Location.LocationObject | null>(
+    null,
+  );
   const mapRef = useRef<MapView>(null);
+  const hasAnimatedToLocationRef = useRef(false);
 
-  // If the user was navigated here from the Classification Result screen, 
+  const { userLocation: prefetchedLocation } = usePrefetch();
+
+  // If the user was navigated here from the Classification Result screen,
   // this holds the specific center they were directed to.
   const focusCenter = route.params?.focusCenter;
 
@@ -114,7 +119,9 @@ export default function RecyclingCentersScreen({
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   // Firebase Realtime Data: Stores strike counts for missing centers (e.g., { 101: 2, 102: 5 })
-  const [reportCounts, setReportCounts] = useState<{ [key: number]: number }>({});
+  const [reportCounts, setReportCounts] = useState<{ [key: number]: number }>(
+    {},
+  );
 
   // Holds the center currently selected by the user (shows the floating card)
   const [selectedCenter, setSelectedCenter] = useState<Center | null>(null);
@@ -126,7 +133,7 @@ export default function RecyclingCentersScreen({
   // DATA PROCESSING
   // --------------------------------------------------------------------------
   // 1. EXTRACT CATEGORIES (Memoized)
-  // useMemo ensures we only extract the unique categories from REAL_CENTERS ONCE 
+  // useMemo ensures we only extract the unique categories from REAL_CENTERS ONCE
   // when the app loads, rather than recalculating on every re-render.
   const allCategories = useMemo(() => {
     const types = new Set<string>();
@@ -140,15 +147,17 @@ export default function RecyclingCentersScreen({
   // Takes the raw JSON data, filters it based on the selected chip (e.g., "Plastic"),
   // and then sorts the remaining items so the closest ones appear at the top of the list.
   const displayedCenters = useMemo(() => {
-    if (!location) return [];
+    const filtered = REAL_CENTERS.filter((center) => {
+      if (selectedCategory === "All") return true;
+      return center.wasteTypes.includes(selectedCategory);
+    });
+
+    if (!location) return filtered; // Show all (unsorted) until GPS resolves
 
     const userLat = location.coords.latitude;
     const userLon = location.coords.longitude;
 
-    return REAL_CENTERS.filter((center) => {
-      if (selectedCategory === "All") return true;
-      return center.wasteTypes.includes(selectedCategory);
-    }).sort((a, b) => {
+    return filtered.sort((a, b) => {
       const distA = parseFloat(
         getDistance(userLat, userLon, a.latitude, a.longitude),
       );
@@ -162,58 +171,65 @@ export default function RecyclingCentersScreen({
   // --------------------------------------------------------------------------
   // EFFECTS & LISTENERS
   // --------------------------------------------------------------------------
-  
+
   // --- 3. FIREBASE LISTENER (COMMUNITY REPORTS) ---
-  // Sets up a real-time listener to Firestore for EVERY center.
-  // If someone reports a center as missing, the map updates immediately for everyone.
+  // One collection-level listener replaces the old per-center approach.
+  // Previously 800+ individual onSnapshot calls caused hundreds of sequential
+  // re-renders on mount, freezing the UI. Now a single listener fires once with
+  // all report docs and does one setReportCounts update.
   useEffect(() => {
-    const unsubscribeCallbacks: (() => void)[] = [];
-    REAL_CENTERS.forEach((center) => {
-      const docRef = doc(db, "reports", center.id.toString());
-      const unsub = onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setReportCounts((prev) => ({
-            ...prev,
-            [center.id]: data.count || 0,
-          }));
+    const unsub = onSnapshot(collection(db, "reports"), (snapshot) => {
+      const counts: { [key: number]: number } = {};
+      snapshot.forEach((docSnap) => {
+        const id = parseInt(docSnap.id, 10);
+        if (!isNaN(id)) {
+          counts[id] = docSnap.data().count || 0;
         }
       });
-      unsubscribeCallbacks.push(unsub);
+      setReportCounts(counts);
     });
-    
-    // Cleanup: Remove all listeners when the component unmounts
-    return () => unsubscribeCallbacks.forEach((unsub) => unsub());
+
+    // Cleanup: Remove listener when the component unmounts
+    return () => unsub();
   }, []);
 
   // --- 3.5 FOCUS ON SPECIFIC CENTER ---
-  // If navigating from ClassificationResultScreen with a target center, 
+  // If navigating from ClassificationResultScreen with a target center,
   // animate the map to zoom in on that center and open its floating card.
   useEffect(() => {
-    if (focusCenter && mapRef.current && !loading) {
+    if (focusCenter && mapRef.current) {
       // Animate map
-      mapRef.current.animateToRegion({
-        latitude: focusCenter.latitude,
-        longitude: focusCenter.longitude,
-        latitudeDelta: 0.01,  // Zoom in tight
-        longitudeDelta: 0.01,
-      }, 1000);
+      mapRef.current.animateToRegion(
+        {
+          latitude: focusCenter.latitude,
+          longitude: focusCenter.longitude,
+          latitudeDelta: 0.01, // Zoom in tight
+          longitudeDelta: 0.01,
+        },
+        1000,
+      );
 
       // Find the full center data locally to populate the card
-      const fullCenter = REAL_CENTERS.find(c => c.id === focusCenter.id);
+      const fullCenter = REAL_CENTERS.find((c) => c.id === focusCenter.id);
       if (fullCenter) {
         setSelectedCenter(fullCenter);
       }
     }
-  }, [focusCenter, loading]);
+  }, [focusCenter]);
 
   // --- 5. LOCATION SETUP ---
-  // Requests GPS permissions and gets the user's current location on mount.
+  // If the prefetch already resolved GPS, apply it immediately.
+  // Always kick off a fresh high-accuracy fix in the background to update the location.
+  useEffect(() => {
+    if (prefetchedLocation && !location) {
+      setLocation(prefetchedLocation);
+    }
+  }, [prefetchedLocation]);
+
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        setLoading(false);
         Toast.show({
           type: "error",
           text1: "Permission Denied",
@@ -221,11 +237,33 @@ export default function RecyclingCentersScreen({
         });
         return;
       }
-      let userLocation = await Location.getCurrentPositionAsync({});
-      setLocation(userLocation);
-      setLoading(false);
+      let freshLocation = await Location.getCurrentPositionAsync({});
+      setLocation(freshLocation);
     })();
   }, []);
+
+  // --- 5.5 ANIMATE TO USER LOCATION ---
+  // Once GPS resolves (from prefetch or fresh fix), animate the map to the user's
+  // position. Only fires once; focusCenter navigation takes priority.
+  useEffect(() => {
+    if (
+      location &&
+      mapRef.current &&
+      !focusCenter &&
+      !hasAnimatedToLocationRef.current
+    ) {
+      hasAnimatedToLocationRef.current = true;
+      mapRef.current.animateToRegion(
+        {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
+        },
+        1000,
+      );
+    }
+  }, [location, focusCenter]);
 
   // Handle hardware back button (Android) or swipe back (iOS).
   // If a floating card is open, close it first instead of leaving the screen.
@@ -244,7 +282,6 @@ export default function RecyclingCentersScreen({
     );
     return () => subscription.remove();
   }, [selectedCenter]);
-
 
   // --------------------------------------------------------------------------
   // HANDLERS
@@ -351,7 +388,6 @@ export default function RecyclingCentersScreen({
   // --------------------------------------------------------------------------
   return (
     <View style={styles.fullContainer}>
-      
       {/* --- MAP SECTION --- */}
       <View
         style={[
@@ -359,67 +395,70 @@ export default function RecyclingCentersScreen({
           isListCollapsed && styles.mapContainerExpanded, // Expands map if list is collapsed
         ]}
       >
-        {loading || !location ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Locating you...</Text>
-          </View>
-        ) : (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-            showsUserLocation={true}
-            initialRegion={{
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              latitudeDelta: 0.1,
-              longitudeDelta: 0.1,
-            }}
-          >
-            {/* Render all center pins */}
-            {displayedCenters.map((center) => {
-              const isBlocked = (reportCounts[center.id] || 0) >= 3;
-              const isSelected = selectedCenter?.id === center.id;
-              
-              return (
-                <Marker
-                  key={center.id}
-                  coordinate={{
-                    latitude: center.latitude,
-                    longitude: center.longitude,
-                  }}
-                  opacity={isBlocked ? 0.5 : 1} // Fade out blocked centers
-                  pinColor={isSelected ? "blue" : isBlocked ? "grey" : "red"}
-                  onPress={() => handleMarkerPress(center)}
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+          showsUserLocation={true}
+          initialRegion={
+            location
+              ? {
+                  latitude: location.coords.latitude,
+                  longitude: location.coords.longitude,
+                  latitudeDelta: 0.1,
+                  longitudeDelta: 0.1,
+                }
+              : {
+                  // Default region (Tel Aviv) shown before GPS resolves
+                  latitude: 32.08,
+                  longitude: 34.78,
+                  latitudeDelta: 0.15,
+                  longitudeDelta: 0.15,
+                }
+          }
+        >
+          {/* Render all center pins */}
+          {displayedCenters.map((center) => {
+            const isBlocked = (reportCounts[center.id] || 0) >= 3;
+            const isSelected = selectedCenter?.id === center.id;
+
+            return (
+              <Marker
+                key={center.id}
+                coordinate={{
+                  latitude: center.latitude,
+                  longitude: center.longitude,
+                }}
+                opacity={isBlocked ? 0.5 : 1} // Fade out blocked centers
+                pinColor={isSelected ? "blue" : isBlocked ? "grey" : "red"}
+                onPress={() => handleMarkerPress(center)}
+              >
+                {/* Tooltip shown when tapping a marker before it triggers full selection */}
+                <Callout
+                  tooltip
+                  onPress={() =>
+                    handleNavigation(
+                      center.id,
+                      center.latitude,
+                      center.longitude,
+                    )
+                  }
                 >
-                  {/* Tooltip shown when tapping a marker before it triggers full selection */}
-                  <Callout
-                    tooltip
-                    onPress={() =>
-                      handleNavigation(
-                        center.id,
-                        center.latitude,
-                        center.longitude,
-                      )
-                    }
-                  >
-                    <View style={styles.calloutBubble}>
-                      <Text style={styles.calloutTitle}>{center.name}</Text>
-                      {isBlocked ? (
-                        <Text style={{ color: "red", fontWeight: "bold" }}>
-                          ⚠️ REPORTED ({reportCounts[center.id]})
-                        </Text>
-                      ) : (
-                        <Text style={styles.navigateText}>Tap to Drive 🚗</Text>
-                      )}
-                    </View>
-                  </Callout>
-                </Marker>
-              );
-            })}
-          </MapView>
-        )}
+                  <View style={styles.calloutBubble}>
+                    <Text style={styles.calloutTitle}>{center.name}</Text>
+                    {isBlocked ? (
+                      <Text style={{ color: "red", fontWeight: "bold" }}>
+                        ⚠️ REPORTED ({reportCounts[center.id]})
+                      </Text>
+                    ) : (
+                      <Text style={styles.navigateText}>Tap to Drive 🚗</Text>
+                    )}
+                  </View>
+                </Callout>
+              </Marker>
+            );
+          })}
+        </MapView>
 
         {/* --- FLOATING DETAIL CARD --- */}
         {/* Shown overlaid on the map when a specific center is selected */}
@@ -958,7 +997,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginTop: 2,
   },
-  
+
   // Action Buttons row inside cards
   actionRow: {
     flexDirection: "row",
